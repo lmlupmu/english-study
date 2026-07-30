@@ -181,23 +181,15 @@ export const useUserStore = create<UserState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
   login: (email, password) => {
-    if (email === 'learner@example.com' && password === '123456') {
-      set({ user: demoUser, isAuthenticated: true })
-      return true
-    }
-    if (email === 'parent@example.com' && password === '123456') {
-      set({ user: demoParent, isAuthenticated: true })
-      return true
-    }
     const users = loadUsers()
     const found = users.find(u => u.email === email)
-    if (found) {
-      set({ user: found, isAuthenticated: true })
-      return true
-    }
-    return false
+    if (!found) return false
+    if (found.email === 'learner@example.com' && password !== '123456') return false
+    if (found.email === 'parent@example.com' && password !== '123456') return false
+    set({ user: found, isAuthenticated: true })
+    return true
   },
-  register: (name, email, password, grade, role = 'student') => {
+  register: (name, email, _password, grade, role = 'student') => {
     const users = loadUsers()
     if (users.some(u => u.email === email)) return false
     const newUser: User = {
