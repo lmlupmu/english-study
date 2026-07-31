@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { grammarData, defaultGrammar } from '@/data/courses'
+import { grammarData, defaultGrammar } from '@/data/grammar'
 import { useProgressStore } from '@/store'
 
 interface Props {

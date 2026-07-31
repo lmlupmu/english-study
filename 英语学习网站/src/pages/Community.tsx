@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, Send } from 'lucide-react'
-import { useUserStore, useCommunityStore, useProgressStore } from '@/store'
+import { useUserStore, useCommunityStore } from '@/store'
 import './Community.css'
 
 function formatTime(iso: string) {
@@ -12,7 +12,7 @@ function formatTime(iso: string) {
 export default function Community() {
   const { user, isAuthenticated } = useUserStore()
   const { posts, addPost, likePost, loadPosts } = useCommunityStore()
-  const { unlockAchievement } = useProgressStore()
+
   const [content, setContent] = useState('')
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function Community() {
   const handlePost = async () => {
     if (!content.trim() || !user) return
     await addPost(content.trim(), user.name)
-    await unlockAchievement('social-butterfly')
+
     setContent('')
   }
 

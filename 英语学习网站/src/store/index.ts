@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { User, ProgressRecord, Post, DailyGoal } from '@/types'
-import { achievements as allAchievements } from '@/data/courses'
+
 import { mockPosts } from '@/data/community'
 import { api, setToken, clearToken, getToken, toFrontendUser } from '@/api/client'
 
@@ -186,8 +186,6 @@ interface ProgressState {
   unlockedAchievements: string[]
   dailyGoal: DailyGoal
   completeLesson: (lessonId: string, score: number, xp: number) => Promise<void>
-  checkAchievements: () => string[]
-  unlockAchievement: (id: string) => Promise<void>
   resetDailyGoal: () => Promise<void>
   loadForUser: (userId: string) => Promise<void>
   getChildProgress: (userId: string) => Promise<ProgressData>
@@ -208,33 +206,6 @@ export const useProgressStore = create<ProgressState>()((set, get) => ({
       await get().loadForUser(currentUserId)
       await userStore.refreshUser()
     }
-    const newlyUnlocked = get().checkAchievements()
-    for (const id of newlyUnlocked) {
-      await get().unlockAchievement(id)
-    }
-  },
-
-  checkAchievements: () => {
-    const { records, unlockedAchievements } = get()
-    const user = useUserStore.getState().user
-    const newUnlocked = new Set(unlockedAchievements)
-    if (records.length >= 1) newUnlocked.add('first-step')
-    if (user && user.streak >= 3) newUnlocked.add('streak-3')
-    if (user && user.streak >= 7) newUnlocked.add('streak-7')
-    const vocabRecords = records.filter(r => r.lessonId.endsWith('-vocab'))
-    if (vocabRecords.length >= 10) newUnlocked.add('vocab-master')
-    const grammarRecords = records.filter(r => r.lessonId.endsWith('-grammar'))
-    if (grammarRecords.length >= 5 && grammarRecords.every(r => r.score >= 90)) newUnlocked.add('grammar-guru')
-    if (user && user.totalXp >= 1000) newUnlocked.add('xp-1000')
-    const diff = Array.from(newUnlocked).filter(id => !unlockedAchievements.includes(id))
-    set({ unlockedAchievements: Array.from(newUnlocked) })
-    return diff
-  },
-
-  unlockAchievement: async id => {
-    if (get().unlockedAchievements.includes(id)) return
-    await api.unlockAchievement(id)
-    set(state => ({ unlockedAchievements: [...state.unlockedAchievements, id] }))
   },
 
   resetDailyGoal: async () => {
@@ -294,7 +265,6 @@ export const useCommunityStore = create<CommunityState>()((set) => ({
         createdAt: post.created_at,
       }, ...state.posts],
     }))
-    await useProgressStore.getState().unlockAchievement('social-butterfly')
   },
 
   likePost: async id => {
@@ -304,8 +274,6 @@ export const useCommunityStore = create<CommunityState>()((set) => ({
     }))
   },
 }))
-
-export const getAchievements = () => allAchievements
 
 // 应用启动时恢复登录会话
 useUserStore.getState().restoreSession()

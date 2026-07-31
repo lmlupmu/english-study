@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BookOpen, BarChart2, Users, Trophy, User, Menu, X, LogOut, Flame, Shield, WifiOff } from 'lucide-react'
+import { BookOpen, BarChart2, Users, Sparkles, User, Menu, X, LogOut, Flame, Shield, WifiOff } from 'lucide-react'
 import { useUserStore } from '@/store'
 import './Layout.css'
 
@@ -9,7 +9,7 @@ const studentNavItems = [
   { path: '/courses', label: '课程', icon: BookOpen },
   { path: '/progress', label: '进度', icon: BarChart2 },
   { path: '/community', label: '社区', icon: Users },
-  { path: '/achievements', label: '成就', icon: Trophy },
+  { path: '/daily', label: '每日一句', icon: Sparkles },
 ]
 
 const parentNavItems = [

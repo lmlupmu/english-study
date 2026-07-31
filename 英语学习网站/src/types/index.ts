@@ -48,7 +48,7 @@ export interface VocabularyItem {
   synonyms?: string[]
   antonyms?: string[]
   collocations?: string[]
-  difficulty?: 1 | 2 | 3
+  difficulty?: 1 | 2 | 3 | 4 | 5
 }
 
 export interface GrammarQuestion {

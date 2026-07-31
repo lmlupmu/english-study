@@ -8,7 +8,7 @@ import GradeDetail from '@/pages/GradeDetail'
 import LessonPage from '@/pages/LessonPage'
 import Progress from '@/pages/Progress'
 import Community from '@/pages/Community'
-import Achievements from '@/pages/Achievements'
+import DailySentence from '@/pages/DailySentence'
 import Profile from '@/pages/Profile'
 import ParentDashboard from '@/pages/ParentDashboard'
 
@@ -24,7 +24,7 @@ function App() {
         <Route path="lesson/:lessonId" element={<LessonPage />} />
         <Route path="progress" element={<Progress />} />
         <Route path="community" element={<Community />} />
-        <Route path="achievements" element={<Achievements />} />
+        <Route path="daily" element={<DailySentence />} />
         <Route path="profile" element={<Profile />} />
         <Route path="parent" element={<ParentDashboard />} />
       </Route>

@@ -1,0 +1,57 @@
+.daily-sentence-page {
+  padding: 40px 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.sentence-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+}
+
+.sentence-header {
+  margin-bottom: 24px;
+}
+
+.sentence-badge {
+  background: var(--primary);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sentence-content {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.sentence-en {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.sentence-phonetic {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.sentence-cn {
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+
+.sentence-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}

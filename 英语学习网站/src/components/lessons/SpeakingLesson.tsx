@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mic, Volume2, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { speakingData, defaultSpeaking } from '@/data/courses'
+import { speakingData, defaultSpeaking } from '@/data/speaking'
 import { useProgressStore } from '@/store'
 
 interface Props {

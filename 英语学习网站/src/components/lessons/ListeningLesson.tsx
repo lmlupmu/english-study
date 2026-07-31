@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Headphones, ArrowRight, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { listeningData, defaultListening } from '@/data/courses'
+import { listeningData } from '@/data/listening'
 import { useProgressStore } from '@/store'
 
 interface Props {
@@ -15,7 +15,7 @@ interface Props {
 export default function ListeningLesson({ lessonId, xp }: Props) {
   const navigate = useNavigate()
   const { completeLesson } = useProgressStore()
-  const items = listeningData[lessonId.replace('-listening', '')] || defaultListening
+  const items = listeningData[lessonId.replace('-listening', '')] || listeningData['g1-u1']
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [answered, setAnswered] = useState(false)
