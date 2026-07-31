@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, Calendar, Flame, Star, LogOut } from 'lucide-react'
+import { Mail, Calendar, Flame, Star, LogOut, BookOpen } from 'lucide-react'
 import { useUserStore, useProgressStore } from '@/store'
 import { grades } from '@/data/courses'
 import './Profile.css'
@@ -70,6 +70,11 @@ export default function Profile() {
           </div>
           <div className="profile-stat">
             <Star size={24} style={{ color: 'var(--accent)' }} />
+            <div className="profile-stat-value">{user.totalXp}</div>
+            <div className="profile-stat-label">累计 XP</div>
+          </div>
+          <div className="profile-stat">
+            <BookOpen size={24} style={{ color: 'var(--accent-2)' }} />
             <div className="profile-stat-value">{wordsLearned}</div>
             <div className="profile-stat-label">已背单词</div>
           </div>

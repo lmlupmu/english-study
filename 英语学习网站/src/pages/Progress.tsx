@@ -1,7 +1,7 @@
 import { useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Flame, Target, TrendingUp, Award, ArrowRight } from 'lucide-react'
+import { Flame, Target, TrendingUp, Award, ArrowRight, BookOpen } from 'lucide-react'
 import { useUserStore, useProgressStore } from '@/store'
 import { grades, generateUnits } from '@/data/courses'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -84,10 +84,15 @@ export default function Progress() {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="stat-card">
             <TrendingUp className="stat-icon" style={{ color: 'var(--success)' }} />
+            <div className="stat-value">{user?.totalXp || 0}</div>
+            <div className="stat-label">累计 XP</div>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="stat-card">
+            <BookOpen className="stat-icon" style={{ color: 'var(--accent-2)' }} />
             <div className="stat-value">{wordsLearned}</div>
             <div className="stat-label">已背单词</div>
           </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="stat-card">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="stat-card">
             <Award className="stat-icon" style={{ color: 'var(--accent-2)' }} />
             <div className="stat-value">{Math.round((dailyGoal.completed / dailyGoal.target) * 100)}%</div>
             <div className="stat-label">今日目标</div>

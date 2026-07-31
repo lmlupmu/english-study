@@ -76,8 +76,8 @@ export default function GradeDetail() {
                         <div className="lesson-title">{lesson.title}</div>
                         <div className="lesson-meta">
                           {lesson.type === 'vocabulary'
-                            ? `${getVocabForUnit(unit.id, Number(gradeId)).length} 单词 · ${lesson.duration} 分钟`
-                            : `${typeLabels[lesson.type]} · ${lesson.duration} 分钟 · ${lesson.xp} 分`}
+                            ? `${getVocabForUnit(unit.id, Number(gradeId)).length} 单词 · ${lesson.duration} 分钟 · ${lesson.xp} XP`
+                            : `${typeLabels[lesson.type]} · ${lesson.duration} 分钟 · ${lesson.xp} XP`}
                         </div>
                       </div>
                       {completed && <CheckCircle2 size={20} className="completed-icon" />}

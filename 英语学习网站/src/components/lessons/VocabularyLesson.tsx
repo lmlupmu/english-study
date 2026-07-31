@@ -202,7 +202,7 @@ export default function VocabularyLesson({ lessonId, xp, gradeId }: Props) {
           <span><Brain size={14} /> 掌握 {baseItems.length} 词</span>
           <span><Sparkles size={14} /> 正确 {correctCount}/{total}</span>
         </div>
-        <div className="result-xp">+30 单词</div>
+        <div className="result-xp">+{xp} XP</div>
         <button className="btn btn-primary" onClick={() => navigate('/courses')}>
           返回课程
         </button>

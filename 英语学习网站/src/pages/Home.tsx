@@ -66,7 +66,7 @@ export default function Home() {
                   <BookOpen size={20} />
                   <div>
                     <div className="mini-lesson-title">Unit 3 · 我的爱好</div>
-                    <div className="mini-lesson-meta">预计 10 分钟 · 30 单词</div>
+                    <div className="mini-lesson-meta">预计 10 分钟 · 20 XP</div>
                   </div>
                 </div>
                 <div className="progress-line">

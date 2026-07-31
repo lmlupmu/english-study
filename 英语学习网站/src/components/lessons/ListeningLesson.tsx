@@ -57,7 +57,7 @@ export default function ListeningLesson({ lessonId, xp }: Props) {
         <CheckCircle2 size={64} color="var(--success)" style={{ margin: '0 auto 20px' }} />
         <div className="result-score">{score}</div>
         <div className="result-label">听力训练得分</div>
-        <div className="result-xp">+{xp} 分</div>
+        <div className="result-xp">+{xp} XP</div>
         <button className="btn btn-primary" onClick={() => navigate('/courses')}>
           返回课程
         </button>

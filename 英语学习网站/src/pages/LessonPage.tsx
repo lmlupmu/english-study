@@ -44,7 +44,7 @@ export default function LessonPage() {
             {grade.name} / {unit.title} / {lesson.title}
           </div>
           <h1>{lesson.title}</h1>
-          <p>预计 {lesson.duration} 分钟 · 完成可获得 {lesson.type === 'vocabulary' ? '30 单词' : `${lesson.xp} 分`}</p>
+          <p>预计 {lesson.duration} 分钟 · 完成可获得 {lesson.xp} XP</p>
         </div>
 
         <div className="lesson-stage">

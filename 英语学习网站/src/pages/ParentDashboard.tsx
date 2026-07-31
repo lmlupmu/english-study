@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Users, Plus, BookOpen, Target, Calendar, ArrowRight, LogOut, GraduationCap, TrendingUp } from 'lucide-react'
+import { Users, Plus, BookOpen, Target, Calendar, ArrowRight, LogOut, GraduationCap, TrendingUp, Trophy } from 'lucide-react'
 import { useUserStore, useProgressStore } from '@/store'
 import type { User, ProgressRecord } from '@/types'
 import './ParentDashboard.css'
@@ -172,6 +172,11 @@ export default function ParentDashboard() {
               </div>
               <div className="child-stats">
                 <div className="stat">
+                  <Trophy size={18} />
+                  <span className="stat-value">{child.totalXp}</span>
+                  <span className="stat-label">总 XP</span>
+                </div>
+                <div className="stat">
                   <BookOpen size={18} />
                   <span className="stat-value">{child.wordsLearned}</span>
                   <span className="stat-label">已背单词</span>
@@ -223,6 +228,13 @@ export default function ParentDashboard() {
                 </div>
               </div>
               <div className="overview-item">
+                <Trophy size={20} />
+                <div>
+                  <div className="overview-value">{selectedStats.totalXp}</div>
+                  <div className="overview-label">累计 XP</div>
+                </div>
+              </div>
+              <div className="overview-item">
                 <BookOpen size={20} />
                 <div>
                   <div className="overview-value">{selectedStats.wordsLearned}</div>
@@ -250,7 +262,7 @@ export default function ParentDashboard() {
                       <span className={`record-score ${record.score >= 80 ? 'good' : record.score >= 60 ? 'ok' : 'poor'}`}>
                         {record.score} 分
                       </span>
-                      <span className="record-xp">+{record.xpEarned} 分</span>
+                      <span className="record-xp">+{record.xpEarned} XP</span>
                       <span className="record-time">{new Date(record.completedAt).toLocaleString('zh-CN')}</span>
                     </div>
                   </div>
