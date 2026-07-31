@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Calendar, Flame, Star, LogOut } from 'lucide-react'
 import { useUserStore } from '@/store'
@@ -7,9 +7,15 @@ import './Profile.css'
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { user, isAuthenticated, logout, updateUser } = useUserStore()
+  const { user, isAuthenticated, logout, updateUser, refreshUser } = useUserStore()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(user?.name || '')
+
+  // 进入页面时刷新用户信息，确保昵称 / streak / XP 是最新的
+  useEffect(() => {
+    if (isAuthenticated) void refreshUser()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
 
   if (!isAuthenticated || !user) {
     return (

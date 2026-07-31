@@ -1,8 +1,9 @@
 import type { ComponentType } from 'react'
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Rocket, Flame, BookOpen, Brain, MessageCircle, Trophy, Lock, type LucideProps } from 'lucide-react'
 import { achievements } from '@/data/courses'
-import { useProgressStore } from '@/store'
+import { useProgressStore, useUserStore } from '@/store'
 import './Achievements.css'
 
 const iconMap: Record<string, ComponentType<LucideProps>> = {
@@ -15,7 +16,15 @@ const iconMap: Record<string, ComponentType<LucideProps>> = {
 }
 
 export default function Achievements() {
-  const { unlockedAchievements } = useProgressStore()
+  const { unlockedAchievements, loadForUser } = useProgressStore()
+  const { user, isAuthenticated } = useUserStore()
+
+  // 进入页面时刷新成就解锁状态，保证跨设备一致
+  useEffect(() => {
+    if (isAuthenticated && user) void loadForUser(user.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id])
+
   const unlockedCount = unlockedAchievements.length
 
   return (

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { User, ProgressRecord, Post, DailyGoal } from '@/types'
 import { achievements as allAchievements } from '@/data/courses'
 import { mockPosts } from '@/data/community'
-import { api, setToken, clearToken, toFrontendUser } from '@/api/client'
+import { api, setToken, clearToken, getToken, toFrontendUser } from '@/api/client'
 
 interface ProgressData {
   records: ProgressRecord[]
@@ -48,6 +48,7 @@ interface UserState {
   bindChild: (childEmail: string) => Promise<boolean>
   loadChildren: () => Promise<void>
   refreshUser: () => Promise<void>
+  syncFromServer: () => Promise<void>
   clearError: () => void
   restoreSession: () => Promise<void>
 }
@@ -60,6 +61,11 @@ export const useUserStore = create<UserState>()((set, get) => ({
   children: [],
 
   restoreSession: async () => {
+    // 没有 token 直接跳过，避免每次打开页面都触发一次无意义的 401
+    if (!getToken()) {
+      set({ user: null, isAuthenticated: false, loading: false })
+      return
+    }
     set({ loading: true })
     try {
       const { user } = await api.getMe()
@@ -69,6 +75,22 @@ export const useUserStore = create<UserState>()((set, get) => ({
     } catch {
       clearToken()
       set({ user: null, isAuthenticated: false, loading: false })
+    }
+  },
+
+  // 跨设备同步：从服务端拉取最新的用户信息、学习进度、(家长)孩子列表
+  // 在窗口重新获得焦点 / 页面重新可见 / 网络恢复时调用，
+  // 保证从电脑端切到手机端（或反之）时看到的数据始终是最新的
+  syncFromServer: async () => {
+    const current = get().user
+    if (!current || !getToken()) return
+    try {
+      const [meRes, progressData] = await Promise.all([api.getMe(), api.getProgress()])
+      set({ user: toFrontendUser(meRes.user) })
+      useProgressStore.setState(toProgressData(progressData))
+      if (meRes.user.role === 'parent') await get().loadChildren()
+    } catch {
+      // 401 已在 client 内处理；其它错误静默忽略，避免打断用户
     }
   },
 
@@ -247,7 +269,7 @@ interface CommunityState {
   likePost: (id: string) => Promise<void>
 }
 
-export const useCommunityStore = create<CommunityState>()((set, get) => ({
+export const useCommunityStore = create<CommunityState>()((set) => ({
   posts: mockPosts,
   loaded: false,
 
@@ -285,5 +307,32 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
 
 export const getAchievements = () => allAchievements
 
-// Restore session on app load
+// 应用启动时恢复登录会话
 useUserStore.getState().restoreSession()
+
+// ─────────────────────────────────────────────────────────────
+// 跨设备数据自动同步
+// 当用户从电脑端切到手机端（或反过来）时，另一端通常已经处于登录态，
+// 但本地内存中的数据可能是旧的。这里监听以下事件触发服务端拉取：
+//   1. window focus       —— 切回当前标签页
+//   2. visibilitychange   —— 页面重新可见（含从后台切回前台）
+//   3. online             —— 网络从断开恢复
+// 同时做 5 秒防抖，避免短时间内重复请求。
+// ─────────────────────────────────────────────────────────────
+if (typeof window !== 'undefined') {
+  let lastSyncAt = 0
+  const SYNC_DEBOUNCE_MS = 5000
+
+  const triggerSync = () => {
+    const now = Date.now()
+    if (now - lastSyncAt < SYNC_DEBOUNCE_MS) return
+    lastSyncAt = now
+    void useUserStore.getState().syncFromServer()
+  }
+
+  window.addEventListener('focus', triggerSync)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') triggerSync()
+  })
+  window.addEventListener('online', triggerSync)
+}

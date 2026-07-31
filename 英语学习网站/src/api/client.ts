@@ -1,7 +1,7 @@
 // 生产环境使用同域 API（/api），本地开发可通过 .env 覆盖
 export const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
-function getToken(): string | null {
+export function getToken(): string | null {
   return localStorage.getItem('englishmind_token')
 }
 
@@ -24,6 +24,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   const res = await fetch(url, { ...options, headers })
+
+  // token 失效或过期：清理本地凭证并跳转登录页，保证跨设备登录态一致
+  if (res.status === 401 && token) {
+    clearToken()
+    const pathname = window.location.pathname
+    if (!pathname.startsWith('/login') && !pathname.startsWith('/register')) {
+      window.location.href = '/login'
+    }
+    throw new Error('登录已过期，请重新登录')
+  }
+
   const data = await res.json().catch(() => ({}))
 
   if (!res.ok) {

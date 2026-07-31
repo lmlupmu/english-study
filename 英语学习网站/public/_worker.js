@@ -1,46 +1,7 @@
-import type { D1Database, PagesFunction } from '@cloudflare/workers-types'
-
-interface Env {
-  DB: D1Database
-  JWT_SECRET: string
-}
-
-// 基础类型
-interface User {
-  id: string
-  name: string
-  email: string
-  grade: number
-  role: 'student' | 'parent'
-  streak: number
-  total_xp: number
-  registered_at: string
-  children: string[]
-}
-
-interface ProgressRecord {
-  lesson_id: string
-  completed_at: string
-  score: number
-  xp_earned: number
-}
-
-interface AchievementRecord {
-  achievement_id: string
-  unlocked_at: string
-}
-
-interface Post {
-  id: string
-  author_id: string
-  author_name: string
-  content: string
-  likes: number
-  created_at: string
-}
+// Advanced mode Pages Function: handles /api/* and serves static assets
 
 // CORS
-function corsPreflight(): Response {
+function corsPreflight() {
   const headers = new Headers()
   headers.set('Access-Control-Allow-Origin', '*')
   headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
@@ -49,7 +10,7 @@ function corsPreflight(): Response {
   return new Response(null, { status: 204, headers })
 }
 
-function jsonResponse(data: unknown, status = 200): Response {
+function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -61,12 +22,12 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 // Base64 URL
-function bytesToBase64Url(bytes: ArrayBuffer): string {
+function bytesToBase64Url(bytes) {
   const bin = Array.from(new Uint8Array(bytes), b => String.fromCharCode(b)).join('')
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function base64UrlToBytes(base64url: string): Uint8Array {
+function base64UrlToBytes(base64url) {
   const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/')
   const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
   const bin = atob(padded)
@@ -74,7 +35,7 @@ function base64UrlToBytes(base64url: string): Uint8Array {
 }
 
 // JWT
-async function signJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
+async function signJwt(payload, secret) {
   const header = { alg: 'HS256', typ: 'JWT' }
   const encodedHeader = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(header)).buffer)
   const encodedPayload = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)).buffer)
@@ -91,7 +52,7 @@ async function signJwt(payload: Record<string, unknown>, secret: string): Promis
   return `${data}.${encodedSignature}`
 }
 
-async function verifyJwt(token: string, secret: string): Promise<Record<string, unknown> | null> {
+async function verifyJwt(token, secret) {
   const parts = token.split('.')
   if (parts.length !== 3) return null
   const [encodedHeader, encodedPayload, encodedSignature] = parts
@@ -116,7 +77,7 @@ async function verifyJwt(token: string, secret: string): Promise<Record<string, 
 }
 
 // Password hashing (PBKDF2)
-async function hashPassword(password: string): Promise<string> {
+async function hashPassword(password) {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const iterations = 100000
   const keyMaterial = await crypto.subtle.importKey(
@@ -134,7 +95,7 @@ async function hashPassword(password: string): Promise<string> {
   return `${iterations}:${bytesToBase64Url(salt.buffer)}:${bytesToBase64Url(hash)}`
 }
 
-async function verifyPassword(password: string, stored: string): Promise<boolean> {
+async function verifyPassword(password, stored) {
   const [iterationsStr, saltB64, hashB64] = stored.split(':')
   const iterations = parseInt(iterationsStr, 10)
   const salt = base64UrlToBytes(saltB64)
@@ -154,7 +115,7 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
 }
 
 // Auth middleware
-async function getUserId(request: Request, env: Env): Promise<string | null> {
+async function getUserId(request, env) {
   const auth = request.headers.get('Authorization')
   if (!auth || !auth.startsWith('Bearer ')) return null
   const token = auth.slice(7)
@@ -163,17 +124,17 @@ async function getUserId(request: Request, env: Env): Promise<string | null> {
 }
 
 // Helpers
-function today(): string {
+function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function rowToUser(row: Record<string, unknown>): User {
+function rowToUser(row) {
   return {
     id: String(row.id),
     name: String(row.name),
     email: String(row.email),
     grade: Number(row.grade),
-    role: row.role as 'student' | 'parent',
+    role: row.role,
     streak: Number(row.streak || 0),
     total_xp: Number(row.total_xp || 0),
     registered_at: String(row.registered_at),
@@ -182,14 +143,8 @@ function rowToUser(row: Record<string, unknown>): User {
 }
 
 // API handlers
-async function handleRegister(request: Request, env: Env): Promise<Response> {
-  const body = (await request.json()) as {
-    name?: string
-    email?: string
-    password?: string
-    grade?: number
-    role?: 'student' | 'parent'
-  }
+async function handleRegister(request, env) {
+  const body = await request.json()
   const { name, email, password, grade, role = 'student' } = body
   if (!name || !email || !password || grade === undefined) {
     return jsonResponse({ error: '缺少必填字段' }, 400)
@@ -210,15 +165,15 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
   await env.DB.prepare(
     'INSERT INTO users (id, name, email, password_hash, grade, role, streak, total_xp, registered_at, children) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   )
-    .bind(id, name, email, passwordHash, grade, role, 0, 0, now, JSON.stringify(role === 'parent' ? [] : undefined))
+    .bind(id, name, email, passwordHash, grade, role, 0, 0, now, JSON.stringify(role === 'parent' ? [] : '[]'))
     .run()
 
   const token = await signJwt({ sub: id, email, role }, env.JWT_SECRET)
-  return jsonResponse({ token, user: { id, name, email, grade, role, streak: 0, total_xp: 0, registered_at: now, children: role === 'parent' ? [] : undefined } }, 201)
+  return jsonResponse({ token, user: { id, name, email, grade, role, streak: 0, total_xp: 0, registered_at: now, children: role === 'parent' ? [] : [] } }, 201)
 }
 
-async function handleLogin(request: Request, env: Env): Promise<Response> {
-  const body = (await request.json()) as { email?: string; password?: string }
+async function handleLogin(request, env) {
+  const body = await request.json()
   const { email, password } = body
   if (!email || !password) {
     return jsonResponse({ error: '缺少邮箱或密码' }, 400)
@@ -239,19 +194,19 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   return jsonResponse({ token, user }, 200)
 }
 
-async function handleGetMe(request: Request, env: Env, userId: string): Promise<Response> {
+async function handleGetMe(request, env, userId) {
   const row = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first()
   if (!row) return jsonResponse({ error: '用户不存在' }, 404)
   return jsonResponse({ user: rowToUser(row) }, 200)
 }
 
-async function handleUpdateMe(request: Request, env: Env, userId: string): Promise<Response> {
-  const body = (await request.json()) as Partial<User>
+async function handleUpdateMe(request, env, userId) {
+  const body = await request.json()
   const row = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first()
   if (!row) return jsonResponse({ error: '用户不存在' }, 404)
 
   const current = rowToUser(row)
-  const allowed: Record<string, { column: string; transform?: (v: unknown) => unknown }> = {
+  const allowed = {
     name: { column: 'name' },
     grade: { column: 'grade' },
     total_xp: { column: 'total_xp' },
@@ -259,12 +214,12 @@ async function handleUpdateMe(request: Request, env: Env, userId: string): Promi
     children: { column: 'children', transform: v => JSON.stringify(v) },
   }
 
-  const updates: { column: string; value: unknown }[] = []
+  const updates = []
   for (const [key, value] of Object.entries(body)) {
     if (allowed[key] === undefined || value === undefined) continue
     if (key === 'grade' && current.role !== 'student') continue
     if (key === 'children' && current.role !== 'parent') continue
-    updates.push({ column: allowed[key].column, value: allowed[key].transform ? allowed[key].transform!(value) : value })
+    updates.push({ column: allowed[key].column, value: allowed[key].transform ? allowed[key].transform(value) : value })
   }
 
   if (updates.length === 0) {
@@ -278,11 +233,11 @@ async function handleUpdateMe(request: Request, env: Env, userId: string): Promi
   await env.DB.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run()
 
   const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first()
-  return jsonResponse({ user: rowToUser(updated!) }, 200)
+  return jsonResponse({ user: rowToUser(updated) }, 200)
 }
 
-async function handleBindChild(request: Request, env: Env, userId: string): Promise<Response> {
-  const body = (await request.json()) as { childEmail?: string }
+async function handleBindChild(request, env, userId) {
+  const body = await request.json()
   const { childEmail } = body
   if (!childEmail) return jsonResponse({ error: '缺少孩子邮箱' }, 400)
 
@@ -306,10 +261,10 @@ async function handleBindChild(request: Request, env: Env, userId: string): Prom
     .run()
 
   const updated = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first()
-  return jsonResponse({ user: rowToUser(updated!) }, 200)
+  return jsonResponse({ user: rowToUser(updated) }, 200)
 }
 
-async function handleGetChildren(request: Request, env: Env, userId: string): Promise<Response> {
+async function handleGetChildren(request, env, userId) {
   const parentRow = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first()
   if (!parentRow || parentRow.role !== 'parent') {
     return jsonResponse({ error: '无权限' }, 403)
@@ -323,16 +278,7 @@ async function handleGetChildren(request: Request, env: Env, userId: string): Pr
   const placeholders = parent.children.map(() => '?').join(',')
   const rows = await env.DB.prepare(`SELECT id, name, email, grade, role, streak, total_xp, registered_at FROM users WHERE id IN (${placeholders})`)
     .bind(...parent.children)
-    .all<{
-      id: string
-      name: string
-      email: string
-      grade: number
-      role: 'student' | 'parent'
-      streak: number
-      total_xp: number
-      registered_at: string
-    }>()
+    .all()
 
   const children = (rows.results || []).map(r => ({
     id: r.id,
@@ -349,7 +295,7 @@ async function handleGetChildren(request: Request, env: Env, userId: string): Pr
   return jsonResponse({ children }, 200)
 }
 
-async function handleGetChildProgress(request: Request, env: Env, userId: string): Promise<Response> {
+async function handleGetChildProgress(request, env, userId) {
   const parentRow = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first()
   if (!parentRow || parentRow.role !== 'parent') {
     return jsonResponse({ error: '无权限' }, 403)
@@ -368,25 +314,25 @@ async function handleGetChildProgress(request: Request, env: Env, userId: string
     'SELECT lesson_id, completed_at, score, xp_earned FROM progress WHERE user_id = ? ORDER BY completed_at'
   )
     .bind(childId)
-    .all<ProgressRecord>()
+    .all()
 
   return jsonResponse({ records: records.results || [] }, 200)
 }
 
-async function handleGetProgress(request: Request, env: Env, userId: string): Promise<Response> {
+async function handleGetProgress(request, env, userId) {
   const records = await env.DB.prepare(
     'SELECT lesson_id, completed_at, score, xp_earned FROM progress WHERE user_id = ? ORDER BY completed_at'
   )
     .bind(userId)
-    .all<ProgressRecord>()
+    .all()
 
   const achievements = await env.DB.prepare('SELECT achievement_id, unlocked_at FROM achievements WHERE user_id = ?')
     .bind(userId)
-    .all<AchievementRecord>()
+    .all()
 
   const goalRow = await env.DB.prepare('SELECT target, completed FROM daily_goals WHERE user_id = ? AND goal_date = ?')
     .bind(userId, today())
-    .first<{ target: number; completed: number }>()
+    .first()
 
   return jsonResponse(
     {
@@ -398,13 +344,12 @@ async function handleGetProgress(request: Request, env: Env, userId: string): Pr
   )
 }
 
-async function handleCompleteLesson(request: Request, env: Env, userId: string): Promise<Response> {
-  const body = (await request.json()) as { lessonId?: string; score?: number; xp?: number }
+async function handleCompleteLesson(request, env, userId) {
+  const body = await request.json()
   const { lessonId, score = 100, xp = 0 } = body
   if (!lessonId) return jsonResponse({ error: '缺少课程ID' }, 400)
 
   const now = new Date().toISOString()
-  const todayStr = today()
 
   await env.DB.prepare(
     'INSERT OR REPLACE INTO progress (user_id, lesson_id, completed_at, score, xp_earned) VALUES (?, ?, ?, ?, ?)'
@@ -412,30 +357,7 @@ async function handleCompleteLesson(request: Request, env: Env, userId: string):
     .bind(userId, lessonId, now, score, xp)
     .run()
 
-  // 服务端计算连续学习天数：保证手机端 / 电脑端 streak 一致
-  const userRow = await env.DB.prepare('SELECT streak, last_active_date FROM users WHERE id = ?')
-    .bind(userId)
-    .first<{ streak: number; last_active_date: string | null }>()
-
-  let newStreak = 1
-  if (userRow) {
-    const last = userRow.last_active_date
-    if (last === todayStr) {
-      // 今天已经计过活跃，保持原 streak
-      newStreak = userRow.streak || 1
-    } else if (last) {
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yesterdayStr = yesterday.toISOString().slice(0, 10)
-      newStreak = last === yesterdayStr ? (userRow.streak || 0) + 1 : 1
-    }
-  }
-
-  await env.DB.prepare(
-    'UPDATE users SET total_xp = total_xp + ?, streak = ?, last_active_date = ? WHERE id = ?'
-  )
-    .bind(xp, newStreak, todayStr, userId)
-    .run()
+  await env.DB.prepare('UPDATE users SET total_xp = total_xp + ? WHERE id = ?').bind(xp, userId).run()
 
   const goalRow = await env.DB.prepare('SELECT * FROM daily_goals WHERE user_id = ? AND goal_date = ?')
     .bind(userId, today())
@@ -453,14 +375,14 @@ async function handleCompleteLesson(request: Request, env: Env, userId: string):
   return jsonResponse({ success: true }, 200)
 }
 
-async function handleGetAchievements(request: Request, env: Env, userId: string): Promise<Response> {
+async function handleGetAchievements(request, env, userId) {
   const rows = await env.DB.prepare('SELECT achievement_id, unlocked_at FROM achievements WHERE user_id = ?')
     .bind(userId)
-    .all<AchievementRecord>()
+    .all()
   return jsonResponse({ unlockedAchievements: (rows.results || []).map(r => r.achievement_id) }, 200)
 }
 
-async function handleUnlockAchievement(request: Request, env: Env, userId: string): Promise<Response> {
+async function handleUnlockAchievement(request, env, userId) {
   const url = new URL(request.url)
   const id = url.pathname.split('/').pop()
   if (!id) return jsonResponse({ error: '缺少成就ID' }, 400)
@@ -473,15 +395,15 @@ async function handleUnlockAchievement(request: Request, env: Env, userId: strin
   return jsonResponse({ success: true }, 200)
 }
 
-async function handleGetPosts(request: Request, env: Env): Promise<Response> {
+async function handleGetPosts(request, env) {
   const rows = await env.DB.prepare(
     'SELECT id, author_id, author_name, content, likes, created_at FROM posts ORDER BY created_at DESC LIMIT 100'
-  ).all<Post>()
+  ).all()
   return jsonResponse({ posts: rows.results || [] }, 200)
 }
 
-async function handleCreatePost(request: Request, env: Env, userId: string): Promise<Response> {
-  const body = (await request.json()) as { content?: string; authorName?: string }
+async function handleCreatePost(request, env, userId) {
+  const body = await request.json()
   const { content, authorName = '用户' } = body
   if (!content || !content.trim()) return jsonResponse({ error: '内容不能为空' }, 400)
 
@@ -494,7 +416,7 @@ async function handleCreatePost(request: Request, env: Env, userId: string): Pro
   return jsonResponse({ post: { id, author_id: userId, author_name: authorName, content: content.trim(), likes: 0, created_at: now } }, 201)
 }
 
-async function handleLikePost(request: Request, env: Env): Promise<Response> {
+async function handleLikePost(request, env) {
   const url = new URL(request.url)
   const id = url.pathname.split('/').pop()
   if (!id) return jsonResponse({ error: '缺少帖子ID' }, 400)
@@ -503,14 +425,14 @@ async function handleLikePost(request: Request, env: Env): Promise<Response> {
   return jsonResponse({ success: true }, 200)
 }
 
-async function handleSeed(request: Request, env: Env): Promise<Response> {
+async function handleSeed(request, env) {
   const demoAccounts = [
     { id: 'u-demo-learner', name: '小明', email: 'learner@example.com', password: '123456', grade: 3, role: 'student' },
     { id: 'u-demo-parent', name: '家长', email: 'parent@example.com', password: '123456', grade: 0, role: 'parent' },
     { id: 'u-demo-child1', name: '孩子1', email: 'child1@example.com', password: '123456', grade: 1, role: 'student' },
     { id: 'u-demo-child2', name: '孩子2', email: 'child2@example.com', password: '123456', grade: 5, role: 'student' },
     { id: 'u-demo-child3', name: '孩子3', email: 'child3@example.com', password: '123456', grade: 8, role: 'student' },
-  ] as const
+  ]
 
   for (const acc of demoAccounts) {
     const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(acc.email).first()
@@ -535,55 +457,60 @@ async function handleSeed(request: Request, env: Env): Promise<Response> {
   return jsonResponse({ success: true, message: '演示账号已初始化' }, 200)
 }
 
-// Main router
-export const onRequest: PagesFunction<Env> = async (context) => {
-  const { request, env } = context
-
-  if (request.method === 'OPTIONS') {
-    return corsPreflight()
-  }
-
-  const url = new URL(request.url)
-  const pathname = url.pathname
-
-  try {
-    // Public
-    if (pathname === '/api/auth/register' && request.method === 'POST') {
-      return await handleRegister(request, env)
-    }
-    if (pathname === '/api/auth/login' && request.method === 'POST') {
-      return await handleLogin(request, env)
-    }
-    if (pathname === '/api/seed' && request.method === 'POST') {
-      return await handleSeed(request, env)
+// Main handler
+export default {
+  async fetch(request, env) {
+    if (request.method === 'OPTIONS') {
+      return corsPreflight()
     }
 
-    // Protected
-    const userId = await getUserId(request, env)
-    if (!userId) {
-      return jsonResponse({ error: '未登录或 token 无效' }, 401)
+    const url = new URL(request.url)
+    const pathname = url.pathname
+
+    // Let Pages serve static assets for non-API requests
+    if (!pathname.startsWith('/api/')) {
+      return env.ASSETS.fetch(request)
     }
 
-    if (pathname === '/api/user/me' && request.method === 'GET') return await handleGetMe(request, env, userId)
-    if (pathname === '/api/user/me' && request.method === 'PUT') return await handleUpdateMe(request, env, userId)
-    if (pathname === '/api/user/children' && request.method === 'GET') return await handleGetChildren(request, env, userId)
-    if (pathname === '/api/user/bind-child' && request.method === 'POST') return await handleBindChild(request, env, userId)
-    if (pathname.startsWith('/api/progress/') && request.method === 'GET') return await handleGetChildProgress(request, env, userId)
-    if (pathname === '/api/progress' && request.method === 'GET') return await handleGetProgress(request, env, userId)
-    if (pathname === '/api/progress/complete' && request.method === 'POST') return await handleCompleteLesson(request, env, userId)
-    if (pathname === '/api/achievements' && request.method === 'GET') return await handleGetAchievements(request, env, userId)
-    if (pathname.startsWith('/api/achievements/') && pathname.endsWith('/unlock') && request.method === 'POST') {
-      return await handleUnlockAchievement(request, env, userId)
-    }
-    if (pathname === '/api/posts' && request.method === 'GET') return await handleGetPosts(request, env)
-    if (pathname === '/api/posts' && request.method === 'POST') return await handleCreatePost(request, env, userId)
-    if (pathname.startsWith('/api/posts/') && pathname.endsWith('/like') && request.method === 'POST') {
-      return await handleLikePost(request, env)
-    }
+    try {
+      // Public
+      if (pathname === '/api/auth/register' && request.method === 'POST') {
+        return await handleRegister(request, env)
+      }
+      if (pathname === '/api/auth/login' && request.method === 'POST') {
+        return await handleLogin(request, env)
+      }
+      if (pathname === '/api/seed' && request.method === 'POST') {
+        return await handleSeed(request, env)
+      }
 
-    return jsonResponse({ error: 'Not Found' }, 404)
-  } catch (err) {
-    console.error(err)
-    return jsonResponse({ error: '服务器内部错误' }, 500)
-  }
+      // Protected
+      const userId = await getUserId(request, env)
+      if (!userId) {
+        return jsonResponse({ error: '未登录或 token 无效' }, 401)
+      }
+
+      if (pathname === '/api/user/me' && request.method === 'GET') return await handleGetMe(request, env, userId)
+      if (pathname === '/api/user/me' && request.method === 'PUT') return await handleUpdateMe(request, env, userId)
+      if (pathname === '/api/user/children' && request.method === 'GET') return await handleGetChildren(request, env, userId)
+      if (pathname === '/api/user/bind-child' && request.method === 'POST') return await handleBindChild(request, env, userId)
+      if (pathname.startsWith('/api/progress/') && request.method === 'GET') return await handleGetChildProgress(request, env, userId)
+      if (pathname === '/api/progress' && request.method === 'GET') return await handleGetProgress(request, env, userId)
+      if (pathname === '/api/progress/complete' && request.method === 'POST') return await handleCompleteLesson(request, env, userId)
+      if (pathname === '/api/achievements' && request.method === 'GET') return await handleGetAchievements(request, env, userId)
+      if (pathname.startsWith('/api/achievements/') && pathname.endsWith('/unlock') && request.method === 'POST') {
+        return await handleUnlockAchievement(request, env, userId)
+      }
+      if (pathname === '/api/posts' && request.method === 'GET') return await handleGetPosts(request, env)
+      if (pathname === '/api/posts' && request.method === 'POST') return await handleCreatePost(request, env, userId)
+      if (pathname.startsWith('/api/posts/') && pathname.endsWith('/like') && request.method === 'POST') {
+        return await handleLikePost(request, env)
+      }
+
+      return jsonResponse({ error: 'Not Found' }, 404)
+    } catch (err) {
+      console.error(err)
+      return jsonResponse({ error: '服务器内部错误' }, 500)
+    }
+  },
 }

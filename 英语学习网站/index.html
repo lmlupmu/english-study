@@ -2,11 +2,54 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+
+    <!-- PWA 配置 -->
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="description" content="为 1-9 年级学生打造的沉浸式英语学习平台" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- 移动端适配 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="EnglishMind" />
+    <link rel="apple-touch-icon" href="/icon-192.svg" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- 防止电话/邮箱自动识别 -->
+    <meta name="format-detection" content="telephone=no" />
+
     <title>EnglishMind - 沉浸式英语学习平台</title>
+
+    <style>
+      /* PWA 启动页样式 */
+      #initial-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      #initial-splash.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #initial-splash .splash-logo {
+        font-size: 48px;
+        font-weight: 700;
+        color: white;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+    </style>
   </head>
   <body>
+    <div id="initial-splash">
+      <div class="splash-logo">E</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

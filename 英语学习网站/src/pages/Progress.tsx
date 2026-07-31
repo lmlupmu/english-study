@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Flame, Target, TrendingUp, Award, ArrowRight } from 'lucide-react'
@@ -9,7 +9,13 @@ import './Progress.css'
 
 export default function Progress() {
   const { user, isAuthenticated } = useUserStore()
-  const { records, dailyGoal } = useProgressStore()
+  const { records, dailyGoal, loadForUser } = useProgressStore()
+
+  // 进入页面时从服务端拉取最新进度，确保跨设备数据一致
+  useEffect(() => {
+    if (isAuthenticated && user) void loadForUser(user.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id])
 
   const weekData = useMemo(() => {
     const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']

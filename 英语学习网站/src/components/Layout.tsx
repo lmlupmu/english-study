@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BookOpen, BarChart2, Users, Trophy, User, Menu, X, LogOut, Flame, Shield } from 'lucide-react'
+import { BookOpen, BarChart2, Users, Trophy, User, Menu, X, LogOut, Flame, Shield, WifiOff } from 'lucide-react'
 import { useUserStore } from '@/store'
 import './Layout.css'
 
@@ -21,6 +21,18 @@ export default function Layout() {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useUserStore()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   const navItems = user?.role === 'parent' ? parentNavItems : studentNavItems
 
@@ -31,6 +43,38 @@ export default function Layout() {
 
   return (
     <div className="layout">
+      {/* 离线提示横幅 */}
+      <AnimatePresence>
+        {!isOnline && (
+          <motion.div
+            initial={{ y: -60 }}
+            animate={{ y: 0 }}
+            exit={{ y: -60 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              background: '#f59e0b',
+              color: '#000',
+              textAlign: 'center',
+              padding: '10px 16px',
+              fontSize: '14px',
+              fontWeight: 500,
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <WifiOff size={16} />
+            <span>当前处于离线模式，已缓存的内容仍可查看</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <header className="header glass">
         <div className="container header-inner">
           <Link to="/" className="brand">
