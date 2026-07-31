@@ -1,0 +1,8 @@
+name = "english-study"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "englishmind-db"
+database_id = "b25dc69c-76e5-4d89-b496-b3a97885a254"

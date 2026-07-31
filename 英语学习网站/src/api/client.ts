@@ -1,4 +1,5 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8787'
+// 生产环境使用同域 API（/api），本地开发可通过 .env 覆盖
+export const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 function getToken(): string | null {
   return localStorage.getItem('englishmind_token')

@@ -33,6 +33,10 @@ lerna-debug.log*
 *.sln
 *.sw?
 
+# Wrangler
+.wrangler
+.dev.vars
+
 # OS files
 .DS_Store
 Thumbs.db
