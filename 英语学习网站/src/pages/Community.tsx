@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, Send } from 'lucide-react'
-import { useUserStore, useCommunityStore } from '@/store'
+import { useUserStore, useCommunityStore, useProgressStore } from '@/store'
 import './Community.css'
 
 function formatTime(iso: string) {
@@ -12,11 +12,13 @@ function formatTime(iso: string) {
 export default function Community() {
   const { user, isAuthenticated } = useUserStore()
   const { posts, addPost, likePost } = useCommunityStore()
+  const { unlockAchievement } = useProgressStore()
   const [content, setContent] = useState('')
 
   const handlePost = () => {
     if (!content.trim() || !user) return
     addPost(content.trim(), user.name)
+    unlockAchievement('social-butterfly')
     setContent('')
   }
 

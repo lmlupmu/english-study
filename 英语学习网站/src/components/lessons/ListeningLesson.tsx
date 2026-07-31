@@ -12,7 +12,7 @@ interface Props {
   unitOrder: number
 }
 
-export default function ListeningLesson({ lessonId, xp, gradeId: _gradeId, unitOrder: _unitOrder }: Props) {
+export default function ListeningLesson({ lessonId, xp }: Props) {
   const navigate = useNavigate()
   const { completeLesson } = useProgressStore()
   const items = listeningData[lessonId.replace('-listening', '')] || defaultListening

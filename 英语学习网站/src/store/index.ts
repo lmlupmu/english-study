@@ -5,6 +5,7 @@ import { mockPosts } from '@/data/community'
 
 const USERS_KEY = 'englishmind_users'
 const PROGRESS_KEY = (userId: string) => `englishmind-progress-${userId}`
+const POSTS_KEY = 'englishmind_posts'
 
 const loadUsers = (): User[] => {
   try {
@@ -45,6 +46,20 @@ const saveProgress = (userId: string, data: ProgressData) => {
   localStorage.setItem(PROGRESS_KEY(userId), JSON.stringify(data))
 }
 
+const loadPosts = (): Post[] => {
+  try {
+    const raw = localStorage.getItem(POSTS_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {
+    // ignore
+  }
+  return mockPosts
+}
+
+const savePosts = (posts: Post[]) => {
+  localStorage.setItem(POSTS_KEY, JSON.stringify(posts))
+}
+
 interface UserState {
   user: User | null
   isAuthenticated: boolean
@@ -60,6 +75,7 @@ const demoUser: User = {
   id: 'u1',
   name: '学习者',
   email: 'learner@example.com',
+  password: '123456',
   grade: 3,
   streak: 5,
   totalXp: 340,
@@ -71,6 +87,7 @@ const demoChildA: User = {
   id: 'u2',
   name: '小明',
   email: 'child1@example.com',
+  password: '123456',
   grade: 1,
   streak: 3,
   totalXp: 120,
@@ -82,6 +99,7 @@ const demoChildB: User = {
   id: 'u3',
   name: '小红',
   email: 'child2@example.com',
+  password: '123456',
   grade: 3,
   streak: 7,
   totalXp: 280,
@@ -93,6 +111,7 @@ const demoChildC: User = {
   id: 'u4',
   name: '小军',
   email: 'child3@example.com',
+  password: '123456',
   grade: 5,
   streak: 2,
   totalXp: 90,
@@ -104,6 +123,7 @@ const demoParent: User = {
   id: 'p1',
   name: '家长',
   email: 'parent@example.com',
+  password: '123456',
   grade: 0,
   streak: 0,
   totalXp: 0,
@@ -184,18 +204,18 @@ export const useUserStore = create<UserState>()((set, get) => ({
     const users = loadUsers()
     const found = users.find(u => u.email === email)
     if (!found) return false
-    if (found.email === 'learner@example.com' && password !== '123456') return false
-    if (found.email === 'parent@example.com' && password !== '123456') return false
+    if (found.password && found.password !== password) return false
     set({ user: found, isAuthenticated: true })
     return true
   },
-  register: (name, email, _password, grade, role = 'student') => {
+  register: (name, email, password, grade, role = 'student') => {
     const users = loadUsers()
     if (users.some(u => u.email === email)) return false
     const newUser: User = {
       id: role === 'parent' ? `p${Date.now()}` : `u${Date.now()}`,
       name,
       email,
+      password,
       grade,
       streak: 0,
       totalXp: 0,
@@ -249,6 +269,7 @@ interface ProgressState {
   addRecord: (record: ProgressRecord) => void
   completeLesson: (lessonId: string, score: number, xp: number) => void
   checkAchievements: () => void
+  unlockAchievement: (id: string) => void
   resetDailyGoal: () => void
   loadForUser: (userId: string) => void
   getChildProgress: (userId: string) => ProgressData
@@ -309,6 +330,12 @@ export const useProgressStore = create<ProgressState>()((set, get) => {
       set({ unlockedAchievements: Array.from(newUnlocked) })
       persist()
     },
+    unlockAchievement: id => {
+      const { unlockedAchievements } = get()
+      if (unlockedAchievements.includes(id)) return
+      set({ unlockedAchievements: [...unlockedAchievements, id] })
+      persist()
+    },
     resetDailyGoal: () => {
       set(state => ({ dailyGoal: { ...state.dailyGoal, completed: 0 } }))
       persist()
@@ -337,7 +364,7 @@ interface CommunityState {
 }
 
 export const useCommunityStore = create<CommunityState>()((set) => ({
-  posts: mockPosts,
+  posts: loadPosts(),
   addPost: (content, authorName) => {
     const newPost: Post = {
       id: `p${Date.now()}`,
@@ -348,12 +375,18 @@ export const useCommunityStore = create<CommunityState>()((set) => ({
       comments: 0,
       createdAt: new Date().toISOString(),
     }
-    set(state => ({ posts: [newPost, ...state.posts] }))
+    set(state => {
+      const posts = [newPost, ...state.posts]
+      savePosts(posts)
+      return { posts }
+    })
   },
   likePost: id =>
-    set(state => ({
-      posts: state.posts.map(p => (p.id === id ? { ...p, likes: p.likes + 1 } : p)),
-    })),
+    set(state => {
+      const posts = state.posts.map(p => (p.id === id ? { ...p, likes: p.likes + 1 } : p))
+      savePosts(posts)
+      return { posts }
+    }),
 }))
 
 export const getAchievements = () => allAchievements

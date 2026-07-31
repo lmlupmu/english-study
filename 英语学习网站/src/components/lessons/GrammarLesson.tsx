@@ -12,7 +12,7 @@ interface Props {
   unitOrder: number
 }
 
-export default function GrammarLesson({ lessonId, xp, gradeId: _gradeId, unitOrder: _unitOrder }: Props) {
+export default function GrammarLesson({ lessonId, xp }: Props) {
   const navigate = useNavigate()
   const { completeLesson } = useProgressStore()
   const questions = grammarData[lessonId.replace('-grammar', '')] || defaultGrammar

@@ -182,7 +182,7 @@ export const achievements: Achievement[] = [
   { id: 'first-step', title: '初次启程', description: '完成第一堂课程', icon: 'Rocket' },
   { id: 'streak-3', title: '三日连胜', description: '连续学习 3 天', icon: 'Flame' },
   { id: 'streak-7', title: '一周坚持', description: '连续学习 7 天', icon: 'Flame' },
-  { id: 'vocab-master', title: '单词达人', description: '累计记忆 100 个单词', icon: 'BookOpen' },
+  { id: 'vocab-master', title: '单词达人', description: '累计完成 10 次单词记忆课程', icon: 'BookOpen' },
   { id: 'grammar-guru', title: '语法高手', description: '语法练习正确率达到 90%', icon: 'Brain' },
   { id: 'social-butterfly', title: '社区活跃者', description: '在社区发布第一条动态', icon: 'MessageCircle' },
   { id: 'xp-1000', title: '千分里程碑', description: '累计获得 1000 经验值', icon: 'Trophy' },

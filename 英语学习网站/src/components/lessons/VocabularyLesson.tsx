@@ -12,7 +12,7 @@ interface Props {
   unitOrder: number
 }
 
-export default function VocabularyLesson({ lessonId, xp, gradeId: _gradeId, unitOrder: _unitOrder }: Props) {
+export default function VocabularyLesson({ lessonId, xp }: Props) {
   const navigate = useNavigate()
   const { completeLesson } = useProgressStore()
   const items = vocabData[lessonId.replace('-vocab', '')] || defaultVocab
