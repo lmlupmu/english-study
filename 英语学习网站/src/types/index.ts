@@ -8,7 +8,7 @@ export interface User {
   streak: number
   totalXp: number
   registeredAt: string
-  role: 'student' | 'parent'
+  role: 'student' | 'parent' | 'admin'
   children?: string[]
 }
 

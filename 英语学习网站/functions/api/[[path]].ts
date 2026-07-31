@@ -3,6 +3,8 @@ import type { D1Database, PagesFunction } from '@cloudflare/workers-types'
 interface Env {
   DB: D1Database
   JWT_SECRET: string
+  // 一次性创建管理员账号所用密钥；通过 wrangler.toml [vars] 或 dashboard 配置
+  ADMIN_SETUP_KEY?: string
 }
 
 // 基础类型
@@ -11,7 +13,7 @@ interface User {
   name: string
   email: string
   grade: number
-  role: 'student' | 'parent'
+  role: 'student' | 'parent' | 'admin'
   streak: number
   total_xp: number
   registered_at: string
@@ -43,7 +45,7 @@ interface Post {
 function corsPreflight(): Response {
   const headers = new Headers()
   headers.set('Access-Control-Allow-Origin', '*')
-  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
   headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   headers.set('Access-Control-Max-Age', '86400')
   return new Response(null, { status: 204, headers })
@@ -160,6 +162,22 @@ async function getUserId(request: Request, env: Env): Promise<string | null> {
   const token = auth.slice(7)
   const payload = await verifyJwt(token, env.JWT_SECRET)
   return payload && typeof payload.sub === 'string' ? payload.sub : null
+}
+
+// 返回完整 JWT payload，用于读取 role 等字段
+async function getAuthPayload(request: Request, env: Env): Promise<Record<string, unknown> | null> {
+  const auth = request.headers.get('Authorization')
+  if (!auth || !auth.startsWith('Bearer ')) return null
+  const token = auth.slice(7)
+  return await verifyJwt(token, env.JWT_SECRET)
+}
+
+// 管理员鉴权：返回 admin 用户 id；非 admin 返回 null
+async function requireAdmin(request: Request, env: Env): Promise<string | null> {
+  const payload = await getAuthPayload(request, env)
+  if (!payload) return null
+  if (payload.role !== 'admin') return null
+  return typeof payload.sub === 'string' ? payload.sub : null
 }
 
 // Helpers
@@ -535,6 +553,185 @@ async function handleSeed(request: Request, env: Env): Promise<Response> {
   return jsonResponse({ success: true, message: '演示账号已初始化' }, 200)
 }
 
+// ─────────────────────────────────────────────────────────────
+// 管理员相关接口
+// ─────────────────────────────────────────────────────────────
+
+// 一次性创建管理员账号：需要环境变量 ADMIN_SETUP_KEY 校验
+// 若系统中已存在 admin 账号则拒绝，防止被滥用
+async function handleAdminSetup(request: Request, env: Env): Promise<Response> {
+  if (!env.ADMIN_SETUP_KEY) {
+    return jsonResponse({ error: '服务器未配置 ADMIN_SETUP_KEY，无法创建管理员' }, 503)
+  }
+
+  const body = (await request.json()) as {
+    setupKey?: string
+    name?: string
+    email?: string
+    password?: string
+  }
+  const { setupKey, name, email, password } = body
+  if (!setupKey || setupKey !== env.ADMIN_SETUP_KEY) {
+    return jsonResponse({ error: '初始化密钥错误' }, 403)
+  }
+  if (!name || !email || !password) {
+    return jsonResponse({ error: '缺少必填字段' }, 400)
+  }
+  if (password.length < 6) {
+    return jsonResponse({ error: '密码至少 6 位' }, 400)
+  }
+
+  // 系统已有 admin 则禁止再次创建
+  const existing = await env.DB.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").first()
+  if (existing) {
+    return jsonResponse({ error: '系统已存在管理员账号，禁止重复创建' }, 409)
+  }
+
+  const emailConflict = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first()
+  if (emailConflict) {
+    return jsonResponse({ error: '邮箱已被注册' }, 409)
+  }
+
+  const id = `a${Date.now()}`
+  const passwordHash = await hashPassword(password)
+  const now = new Date().toISOString()
+
+  await env.DB.prepare(
+    'INSERT INTO users (id, name, email, password_hash, grade, role, streak, total_xp, registered_at, children) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  )
+    .bind(id, name, email, passwordHash, 0, 'admin', 0, 0, now, JSON.stringify([]))
+    .run()
+
+  const token = await signJwt({ sub: id, email, role: 'admin' }, env.JWT_SECRET)
+  return jsonResponse({
+    token,
+    user: { id, name, email, grade: 0, role: 'admin', streak: 0, total_xp: 0, registered_at: now, children: [] },
+  }, 201)
+}
+
+// 管理员概览统计
+async function handleAdminStats(request: Request, env: Env): Promise<Response> {
+  const totalUsers = await env.DB.prepare('SELECT COUNT(*) as cnt FROM users').first<{ cnt: number }>()
+  const students = await env.DB.prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'student'").first<{ cnt: number }>()
+  const parents = await env.DB.prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'parent'").first<{ cnt: number }>()
+  const completedLessons = await env.DB.prepare('SELECT COUNT(*) as cnt FROM progress').first<{ cnt: number }>()
+  const posts = await env.DB.prepare('SELECT COUNT(*) as cnt FROM posts').first<{ cnt: number }>()
+
+  return jsonResponse({
+    totalUsers: totalUsers?.cnt || 0,
+    students: students?.cnt || 0,
+    parents: parents?.cnt || 0,
+    completedLessons: completedLessons?.cnt || 0,
+    posts: posts?.cnt || 0,
+  }, 200)
+}
+
+// 列出所有用户（支持关键词搜索与角色过滤）
+async function handleAdminListUsers(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url)
+  const keyword = url.searchParams.get('keyword')?.trim() || ''
+  const role = url.searchParams.get('role') || ''
+
+  let sql = 'SELECT id, name, email, grade, role, streak, total_xp, registered_at, children FROM users'
+  const conditions: string[] = []
+  const binds: unknown[] = []
+
+  if (keyword) {
+    conditions.push('(name LIKE ? OR email LIKE ?)')
+    binds.push(`%${keyword}%`, `%${keyword}%`)
+  }
+  if (role && ['student', 'parent', 'admin'].includes(role)) {
+    conditions.push('role = ?')
+    binds.push(role)
+  }
+  if (conditions.length) {
+    sql += ' WHERE ' + conditions.join(' AND ')
+  }
+  sql += ' ORDER BY registered_at DESC LIMIT 500'
+
+  const rows = await env.DB.prepare(sql).bind(...binds).all<{
+    id: string
+    name: string
+    email: string
+    grade: number
+    role: 'student' | 'parent' | 'admin'
+    streak: number
+    total_xp: number
+    registered_at: string
+    children: string
+  }>()
+
+  const users = (rows.results || []).map(r => ({
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    grade: r.grade,
+    role: r.role,
+    streak: r.streak,
+    total_xp: r.total_xp,
+    registered_at: r.registered_at,
+    children: JSON.parse(String(r.children || '[]')),
+  }))
+
+  return jsonResponse({ users }, 200)
+}
+
+// 删除用户：同时清理 progress / achievements / daily_goals / posts，以及家长账号里的引用
+async function handleAdminDeleteUser(request: Request, env: Env, targetId: string): Promise<Response> {
+  if (!targetId) return jsonResponse({ error: '缺少用户ID' }, 400)
+
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(targetId).first<{ id: string; role: string }>()
+  if (!target) return jsonResponse({ error: '用户不存在' }, 404)
+  if (target.role === 'admin') {
+    return jsonResponse({ error: '不能删除管理员账号' }, 403)
+  }
+
+  // 删除关联数据
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM progress WHERE user_id = ?').bind(targetId),
+    env.DB.prepare('DELETE FROM achievements WHERE user_id = ?').bind(targetId),
+    env.DB.prepare('DELETE FROM daily_goals WHERE user_id = ?').bind(targetId),
+    env.DB.prepare('DELETE FROM posts WHERE author_id = ?').bind(targetId),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(targetId),
+  ])
+
+  // 从所有家长账号的 children 数组中移除该 ID
+  const parents = await env.DB.prepare("SELECT id, children FROM users WHERE role = 'parent'").all<{ id: string; children: string }>()
+  for (const p of parents.results || []) {
+    try {
+      const arr: string[] = JSON.parse(String(p.children || '[]'))
+      if (arr.includes(targetId)) {
+        const next = arr.filter(x => x !== targetId)
+        await env.DB.prepare('UPDATE users SET children = ? WHERE id = ?').bind(JSON.stringify(next), p.id).run()
+      }
+    } catch {
+      // ignore JSON 解析错误
+    }
+  }
+
+  return jsonResponse({ success: true }, 200)
+}
+
+// 重置用户密码
+async function handleAdminResetPassword(request: Request, env: Env, targetId: string): Promise<Response> {
+  if (!targetId) return jsonResponse({ error: '缺少用户ID' }, 400)
+  const body = (await request.json()) as { password?: string }
+  const { password } = body
+  if (!password || password.length < 6) {
+    return jsonResponse({ error: '密码至少 6 位' }, 400)
+  }
+
+  const target = await env.DB.prepare('SELECT id, role FROM users WHERE id = ?').bind(targetId).first<{ id: string; role: string }>()
+  if (!target) return jsonResponse({ error: '用户不存在' }, 404)
+  if (target.role === 'admin') {
+    return jsonResponse({ error: '不能重置管理员密码' }, 403)
+  }
+
+  const passwordHash = await hashPassword(password)
+  await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, targetId).run()
+  return jsonResponse({ success: true }, 200)
+}
+
 // Main router
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context
@@ -556,6 +753,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     }
     if (pathname === '/api/seed' && request.method === 'POST') {
       return await handleSeed(request, env)
+    }
+    // 创建管理员：需 setup key，不算公开接口但也不需要 admin token
+    if (pathname === '/api/admin/setup' && request.method === 'POST') {
+      return await handleAdminSetup(request, env)
     }
 
     // Protected
@@ -579,6 +780,32 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     if (pathname === '/api/posts' && request.method === 'POST') return await handleCreatePost(request, env, userId)
     if (pathname.startsWith('/api/posts/') && pathname.endsWith('/like') && request.method === 'POST') {
       return await handleLikePost(request, env)
+    }
+
+    // ─── 管理员接口（需要 admin token） ───
+    if (pathname.startsWith('/api/admin/')) {
+      const adminId = await requireAdmin(request, env)
+      if (!adminId) {
+        return jsonResponse({ error: '无管理员权限' }, 403)
+      }
+
+      if (pathname === '/api/admin/stats' && request.method === 'GET') {
+        return await handleAdminStats(request, env)
+      }
+      if (pathname === '/api/admin/users' && request.method === 'GET') {
+        return await handleAdminListUsers(request, env)
+      }
+      // /api/admin/users/:id  (DELETE)
+      if (pathname.startsWith('/api/admin/users/') && request.method === 'DELETE') {
+        const targetId = decodeURIComponent(pathname.split('/').pop() || '')
+        return await handleAdminDeleteUser(request, env, targetId)
+      }
+      // /api/admin/users/:id/reset-password  (POST)
+      if (pathname.startsWith('/api/admin/users/') && pathname.endsWith('/reset-password') && request.method === 'POST') {
+        const parts = pathname.split('/')
+        const targetId = decodeURIComponent(parts[parts.length - 2] || '')
+        return await handleAdminResetPassword(request, env, targetId)
+      }
     }
 
     return jsonResponse({ error: 'Not Found' }, 404)

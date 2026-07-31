@@ -12,6 +12,8 @@ import Community from '@/pages/Community'
 import DailySentence from '@/pages/DailySentence'
 import Profile from '@/pages/Profile'
 import ParentDashboard from '@/pages/ParentDashboard'
+import AdminDashboard from '@/pages/AdminDashboard'
+import AdminSetup from '@/pages/AdminSetup'
 
 function App() {
   useEffect(() => {
@@ -56,6 +58,8 @@ function App() {
         <Route path="daily" element={<DailySentence />} />
         <Route path="profile" element={<Profile />} />
         <Route path="parent" element={<ParentDashboard />} />
+        <Route path="admin" element={<AdminDashboard />} />
+        <Route path="admin/setup" element={<AdminSetup />} />
       </Route>
     </Routes>
   )

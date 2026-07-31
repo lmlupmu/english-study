@@ -55,6 +55,7 @@ export default function Profile() {
               <span><Mail size={14} /> {user.email}</span>
               <span><Calendar size={14} /> 加入于 {new Date(user.registeredAt).toLocaleDateString('zh-CN')}</span>
               {user.role === 'parent' && <span>家长账号</span>}
+              {user.role === 'admin' && <span>管理员账号</span>}
             </div>
           </div>
           <button className="btn btn-ghost logout-btn" onClick={handleLogout}>
@@ -80,9 +81,9 @@ export default function Profile() {
           </div>
           <div className="profile-stat">
             <div className="profile-grade-badge">
-              {user.role === 'parent' ? '家长' : grades.find(g => g.id === user.grade)?.name || '-'}
+              {user.role === 'parent' ? '家长' : user.role === 'admin' ? '管理员' : grades.find(g => g.id === user.grade)?.name || '-'}
             </div>
-            <div className="profile-stat-label">{user.role === 'parent' ? '账号类型' : '当前年级'}</div>
+            <div className="profile-stat-label">{user.role === 'parent' || user.role === 'admin' ? '账号类型' : '当前年级'}</div>
           </div>
         </div>
       </div>

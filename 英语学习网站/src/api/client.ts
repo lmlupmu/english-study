@@ -77,6 +77,23 @@ export const api = {
     request<{ post: BackendPost }>('/api/posts', { method: 'POST', body: JSON.stringify(body) }),
   likePost: (id: string) =>
     request<{ success: boolean }>(`/api/posts/${id}/like`, { method: 'POST' }),
+
+  // Admin
+  adminSetup: (body: { setupKey: string; name: string; email: string; password: string }) =>
+    request<{ token: string; user: BackendUser }>('/api/admin/setup', { method: 'POST', body: JSON.stringify(body) }),
+  adminStats: () =>
+    request<{ totalUsers: number; students: number; parents: number; completedLessons: number; posts: number }>('/api/admin/stats'),
+  adminListUsers: (params: { keyword?: string; role?: string } = {}) => {
+    const qs = new URLSearchParams()
+    if (params.keyword) qs.set('keyword', params.keyword)
+    if (params.role) qs.set('role', params.role)
+    const query = qs.toString()
+    return request<{ users: BackendUser[] }>(`/api/admin/users${query ? `?${query}` : ''}`)
+  },
+  adminDeleteUser: (id: string) =>
+    request<{ success: boolean }>(`/api/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  adminResetPassword: (id: string, password: string) =>
+    request<{ success: boolean }>(`/api/admin/users/${encodeURIComponent(id)}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) }),
 }
 
 export interface BackendUser {
@@ -84,7 +101,7 @@ export interface BackendUser {
   name: string
   email: string
   grade: number
-  role: 'student' | 'parent'
+  role: 'student' | 'parent' | 'admin'
   streak: number
   total_xp: number
   registered_at: string

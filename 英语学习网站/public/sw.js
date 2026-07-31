@@ -2,7 +2,7 @@
 // 实现：静态资源缓存 + API 离线队列 + 后台同步
 // 版本号：每次发布新版本时更新，强制浏览器刷新缓存
 
-const CACHE_VERSION = 'em-v2'
+const CACHE_VERSION = 'em-v3'
 const STATIC_CACHE = `${CACHE_VERSION}-static`
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`
 const QUEUE_CACHE = `${CACHE_VERSION}-queue`

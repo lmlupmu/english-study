@@ -22,6 +22,10 @@ const parentNavItems = [
   { path: '/parent', label: '家长后台', icon: Shield },
 ]
 
+const adminNavItems = [
+  { path: '/admin', label: '管理后台', icon: Shield },
+]
+
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -72,7 +76,7 @@ export default function Layout() {
     localStorage.setItem('pwa-install-dismissed', 'true')
   }
 
-  const navItems = user?.role === 'parent' ? parentNavItems : studentNavItems
+  const navItems = user?.role === 'admin' ? adminNavItems : user?.role === 'parent' ? parentNavItems : studentNavItems
 
   const handleLogout = () => {
     logout()

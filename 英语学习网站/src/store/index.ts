@@ -43,6 +43,7 @@ interface UserState {
   children: User[]
   login: (email: string, password: string) => Promise<boolean>
   register: (name: string, email: string, password: string, grade: number, role?: 'student' | 'parent') => Promise<boolean>
+  setupAdmin: (setupKey: string, name: string, email: string, password: string) => Promise<boolean>
   logout: () => void
   updateUser: (updates: Partial<User>) => Promise<void>
   bindChild: (childEmail: string) => Promise<boolean>
@@ -120,6 +121,20 @@ export const useUserStore = create<UserState>()((set, get) => ({
       return true
     } catch (err) {
       set({ error: err instanceof Error ? err.message : '注册失败', loading: false })
+      return false
+    }
+  },
+
+  // 一次性创建管理员账号：使用 ADMIN_SETUP_KEY 校验，仅可创建一次
+  setupAdmin: async (setupKey, name, email, password) => {
+    set({ loading: true, error: '' })
+    try {
+      const { token, user } = await api.adminSetup({ setupKey, name, email, password })
+      setToken(token)
+      set({ user: toFrontendUser(user), isAuthenticated: true, loading: false })
+      return true
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '创建管理员失败', loading: false })
       return false
     }
   },
