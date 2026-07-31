@@ -932,6 +932,15 @@ export function getVocabForUnit(unitId: string, gradeId = 1): VocabularyItem[] {
   const supplement = seededPick(pool, need, unitId)
   const combined: VocabularyItem[] = [...existing]
   for (const s of supplement) combined.push(s)
+  // 极端兜底：万一 1-9 年级词汇池加起来仍不足 30（理论不会发生），循环复用直到凑满，保证学习量不变
+  if (combined.length < 30) {
+    const base = combined.length === 0 ? defaultVocab : combined
+    let k = 0
+    while (combined.length < 30) {
+      combined.push(base[k % base.length])
+      k++
+    }
+  }
   return combined.slice(0, 30)
 }
 

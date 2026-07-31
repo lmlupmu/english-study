@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, BookOpen, Brain, Mic, Headphones, CheckCircle2 } from 'lucide-react'
-import { grades, generateUnits } from '@/data/courses'
+import { grades, generateUnits, getVocabForUnit } from '@/data/courses'
 import { useProgressStore } from '@/store'
 import './GradeDetail.css'
 
@@ -75,7 +75,9 @@ export default function GradeDetail() {
                       <div className="lesson-info">
                         <div className="lesson-title">{lesson.title}</div>
                         <div className="lesson-meta">
-                          {typeLabels[lesson.type]} · {lesson.duration} 分钟 · {lesson.xp} XP
+                          {lesson.type === 'vocabulary'
+                            ? `${getVocabForUnit(unit.id, Number(gradeId)).length} 单词 · ${lesson.duration} 分钟 · ${lesson.xp} XP`
+                            : `${typeLabels[lesson.type]} · ${lesson.duration} 分钟 · ${lesson.xp} XP`}
                         </div>
                       </div>
                       {completed && <CheckCircle2 size={20} className="completed-icon" />}
