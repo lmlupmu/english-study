@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import Layout from '@/components/Layout'
 import Home from '@/pages/Home'
@@ -13,6 +14,34 @@ import Profile from '@/pages/Profile'
 import ParentDashboard from '@/pages/ParentDashboard'
 
 function App() {
+  useEffect(() => {
+    // 注册 Service Worker 并监听版本更新
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then(registration => {
+          // 当检测到新版本时，自动激活
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // 新版本已安装，提示用户刷新
+                  newWorker.postMessage('SKIP_WAITING')
+                }
+              })
+            }
+          })
+        })
+        .catch(err => console.error('SW registration failed:', err))
+
+      // 当 SW 切换控制权时，刷新页面
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload()
+      })
+    }
+  }, [])
+
   return (
     <Routes>
       <Route path="/" element={<Layout />}>

@@ -10,6 +10,9 @@
     <meta name="description" content="为 1-9 年级学生打造的沉浸式英语学习平台" />
     <link rel="manifest" href="/manifest.json" />
 
+    <!-- 应用版本：每次发布更新时修改此版本号，强制浏览器刷新缓存 -->
+    <meta name="app-version" content="2.0.0" />
+
     <!-- 移动端适配 -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -52,5 +55,25 @@
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // 版本检测：如果本地存储的版本号与当前不一致，自动刷新
+      (function() {
+        var currentVersion = document.querySelector('meta[name="app-version"]')?.content;
+        var savedVersion = localStorage.getItem('app-version');
+        if (currentVersion && savedVersion && currentVersion !== savedVersion) {
+          // 新版本发布，清理缓存并刷新
+          caches.keys().then(keys => {
+            keys.forEach(key => {
+              if (key.startsWith('em-v')) caches.delete(key);
+            });
+          }).finally(() => {
+            localStorage.setItem('app-version', currentVersion);
+            window.location.reload();
+          });
+        } else if (currentVersion) {
+          localStorage.setItem('app-version', currentVersion);
+        }
+      })();
+    </script>
   </body>
 </html>
