@@ -42,8 +42,13 @@ export interface VocabularyItem {
   word: string
   phonetic: string
   meaning: string
+  partOfSpeech: string
   example: string
   translation: string
+  synonyms?: string[]
+  antonyms?: string[]
+  collocations?: string[]
+  difficulty?: 1 | 2 | 3
 }
 
 export interface GrammarQuestion {
