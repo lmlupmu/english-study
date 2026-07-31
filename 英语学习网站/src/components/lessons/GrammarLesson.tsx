@@ -31,7 +31,7 @@ export default function GrammarLesson({ lessonId, xp }: Props) {
     if (i === q.correctIndex) setCorrectCount(c => c + 1)
   }
 
-  const next = () => {
+  const next = async () => {
     if (index < questions.length - 1) {
       setIndex(i => i + 1)
       setSelected(null)
@@ -39,7 +39,7 @@ export default function GrammarLesson({ lessonId, xp }: Props) {
     } else {
       setFinished(true)
       const score = Math.round((correctCount / questions.length) * 100)
-      completeLesson(lessonId, score, xp)
+      await completeLesson(lessonId, score, xp)
     }
   }
 

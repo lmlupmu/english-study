@@ -88,7 +88,7 @@ export interface Post {
   authorAvatar?: string
   content: string
   likes: number
-  comments: number
+  comments?: number
   createdAt: string
 }
 

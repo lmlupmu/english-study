@@ -19,8 +19,8 @@ export default function Profile() {
     )
   }
 
-  const saveName = () => {
-    updateUser({ name })
+  const saveName = async () => {
+    await updateUser({ name })
     setEditing(false)
   }
 

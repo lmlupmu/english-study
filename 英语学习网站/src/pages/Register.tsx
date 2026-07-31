@@ -7,7 +7,7 @@ import './Auth.css'
 
 export default function Register() {
   const navigate = useNavigate()
-  const { register } = useUserStore()
+  const { register, error: storeError } = useUserStore()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,7 +16,7 @@ export default function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (password.length < 6) {
@@ -24,12 +24,10 @@ export default function Register() {
       return
     }
     setLoading(true)
-    setTimeout(() => {
-      const ok = register(name, email, password, role === 'student' ? grade : 0, role)
-      setLoading(false)
-      if (ok) navigate(role === 'parent' ? '/parent' : '/courses')
-      else setError('该邮箱已被注册')
-    }, 500)
+    const ok = await register(name, email, password, role === 'student' ? grade : 0, role)
+    setLoading(false)
+    if (ok) navigate(role === 'parent' ? '/parent' : '/courses')
+    else setError(storeError || '该邮箱已被注册')
   }
 
   return (

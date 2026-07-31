@@ -2,29 +2,7 @@ import { create } from 'zustand'
 import type { User, ProgressRecord, Post, DailyGoal } from '@/types'
 import { achievements as allAchievements } from '@/data/courses'
 import { mockPosts } from '@/data/community'
-
-const USERS_KEY = 'englishmind_users'
-const PROGRESS_KEY = (userId: string) => `englishmind-progress-${userId}`
-const POSTS_KEY = 'englishmind_posts'
-
-const loadUsers = (): User[] => {
-  try {
-    const raw = localStorage.getItem(USERS_KEY)
-    if (!raw) return []
-    const users: User[] = JSON.parse(raw)
-    return users.map(u => ({
-      ...u,
-      role: u.role || 'student',
-      children: u.role === 'parent' ? (u.children || []) : undefined,
-    }))
-  } catch {
-    return []
-  }
-}
-
-const saveUsers = (users: User[]) => {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users))
-}
+import { api, setToken, clearToken, toFrontendUser } from '@/api/client'
 
 interface ProgressData {
   records: ProgressRecord[]
@@ -32,361 +10,280 @@ interface ProgressData {
   dailyGoal: DailyGoal
 }
 
-const loadProgress = (userId: string): ProgressData => {
-  try {
-    const raw = localStorage.getItem(PROGRESS_KEY(userId))
-    if (raw) return JSON.parse(raw)
-  } catch {
-    // ignore
-  }
-  return { records: [], unlockedAchievements: [], dailyGoal: { target: 60, completed: 0 } }
-}
+const toProgressData = (data: {
+  records: { lesson_id: string; completed_at: string; score: number; xp_earned: number }[]
+  unlockedAchievements: string[]
+  dailyGoal: { target: number; completed: number }
+}): ProgressData => ({
+  records: data.records.map(r => ({
+    lessonId: r.lesson_id,
+    completedAt: r.completed_at,
+    score: r.score,
+    xpEarned: r.xp_earned,
+  })),
+  unlockedAchievements: data.unlockedAchievements,
+  dailyGoal: data.dailyGoal,
+})
 
-const saveProgress = (userId: string, data: ProgressData) => {
-  localStorage.setItem(PROGRESS_KEY(userId), JSON.stringify(data))
-}
-
-const loadPosts = (): Post[] => {
-  try {
-    const raw = localStorage.getItem(POSTS_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    // ignore
-  }
-  return mockPosts
-}
-
-const savePosts = (posts: Post[]) => {
-  localStorage.setItem(POSTS_KEY, JSON.stringify(posts))
-}
+const toPosts = (data: { posts: { id: string; author_id: string; author_name: string; content: string; likes: number; created_at: string }[] }): Post[] =>
+  data.posts.map(p => ({
+    id: p.id,
+    authorId: p.author_id,
+    authorName: p.author_name,
+    content: p.content,
+    likes: p.likes,
+    createdAt: p.created_at,
+  }))
 
 interface UserState {
   user: User | null
   isAuthenticated: boolean
-  login: (email: string, password: string) => boolean
-  register: (name: string, email: string, password: string, grade: number, role?: 'student' | 'parent') => boolean
+  loading: boolean
+  error: string
+  children: User[]
+  login: (email: string, password: string) => Promise<boolean>
+  register: (name: string, email: string, password: string, grade: number, role?: 'student' | 'parent') => Promise<boolean>
   logout: () => void
-  updateUser: (updates: Partial<User>) => void
-  bindChild: (childEmail: string) => boolean
-  allUsers: () => User[]
+  updateUser: (updates: Partial<User>) => Promise<void>
+  bindChild: (childEmail: string) => Promise<boolean>
+  loadChildren: () => Promise<void>
+  refreshUser: () => Promise<void>
+  clearError: () => void
+  restoreSession: () => Promise<void>
 }
-
-const demoUser: User = {
-  id: 'u1',
-  name: '学习者',
-  email: 'learner@example.com',
-  password: '123456',
-  grade: 3,
-  streak: 5,
-  totalXp: 340,
-  registeredAt: '2026-07-01T00:00:00',
-  role: 'student',
-}
-
-const demoChildA: User = {
-  id: 'u2',
-  name: '小明',
-  email: 'child1@example.com',
-  password: '123456',
-  grade: 1,
-  streak: 3,
-  totalXp: 120,
-  registeredAt: '2026-07-10T00:00:00',
-  role: 'student',
-}
-
-const demoChildB: User = {
-  id: 'u3',
-  name: '小红',
-  email: 'child2@example.com',
-  password: '123456',
-  grade: 3,
-  streak: 7,
-  totalXp: 280,
-  registeredAt: '2026-07-05T00:00:00',
-  role: 'student',
-}
-
-const demoChildC: User = {
-  id: 'u4',
-  name: '小军',
-  email: 'child3@example.com',
-  password: '123456',
-  grade: 5,
-  streak: 2,
-  totalXp: 90,
-  registeredAt: '2026-07-20T00:00:00',
-  role: 'student',
-}
-
-const demoParent: User = {
-  id: 'p1',
-  name: '家长',
-  email: 'parent@example.com',
-  password: '123456',
-  grade: 0,
-  streak: 0,
-  totalXp: 0,
-  registeredAt: '2026-07-01T00:00:00',
-  role: 'parent',
-  children: ['u1', 'u2', 'u3', 'u4'],
-}
-
-const migrateLegacyData = () => {
-  try {
-    const legacyUserRaw = localStorage.getItem('englishmind-user')
-    const legacyProgressRaw = localStorage.getItem('englishmind-progress')
-
-    if (legacyUserRaw) {
-      const legacyUser = JSON.parse(legacyUserRaw)
-      const users = loadUsers()
-      if (!users.some(u => u.email === legacyUser.email)) {
-        users.push({
-          ...legacyUser,
-          role: legacyUser.role || 'student',
-          children: legacyUser.children || undefined,
-        })
-        saveUsers(users)
-        if (legacyProgressRaw) {
-          localStorage.setItem(PROGRESS_KEY(legacyUser.id), legacyProgressRaw)
-        }
-        localStorage.removeItem('englishmind-user')
-        localStorage.removeItem('englishmind-progress')
-      }
-    }
-  } catch {
-    // ignore
-  }
-}
-
-const ensureDemoAccounts = () => {
-  const users = loadUsers()
-  const ensure = (user: User) => {
-    if (!users.some(u => u.email === user.email)) users.push(user)
-  }
-  ensure(demoUser)
-  ensure(demoChildA)
-  ensure(demoChildB)
-  ensure(demoChildC)
-  ensure(demoParent)
-  saveUsers(users)
-}
-
-const seedDemoProgress = () => {
-  const seedIfEmpty = (userId: string, count: number) => {
-    if (localStorage.getItem(PROGRESS_KEY(userId))) return
-    const records: ProgressRecord[] = []
-    const types = ['vocab', 'grammar', 'speaking', 'listening']
-    for (let i = 0; i < count; i++) {
-      const type = types[i % types.length]
-      records.push({
-        lessonId: `g${(i % 9) + 1}-u1-${type}`,
-        completedAt: new Date(Date.now() - i * 86400000).toISOString(),
-        score: 60 + Math.floor(Math.random() * 40),
-        xpEarned: 20 + Math.floor(Math.random() * 10),
-      })
-    }
-    saveProgress(userId, { records, unlockedAchievements: [], dailyGoal: { target: 60, completed: count * 25 } })
-  }
-  seedIfEmpty('u2', 8)
-  seedIfEmpty('u3', 14)
-  seedIfEmpty('u4', 5)
-}
-
-migrateLegacyData()
-ensureDemoAccounts()
-seedDemoProgress()
 
 export const useUserStore = create<UserState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
-  login: (email, password) => {
-    const users = loadUsers()
-    const found = users.find(u => u.email === email)
-    if (!found) return false
-    if (found.password && found.password !== password) return false
-    set({ user: found, isAuthenticated: true })
-    return true
-  },
-  register: (name, email, password, grade, role = 'student') => {
-    const users = loadUsers()
-    if (users.some(u => u.email === email)) return false
-    const newUser: User = {
-      id: role === 'parent' ? `p${Date.now()}` : `u${Date.now()}`,
-      name,
-      email,
-      password,
-      grade,
-      streak: 0,
-      totalXp: 0,
-      registeredAt: new Date().toISOString(),
-      role,
-      children: role === 'parent' ? [] : undefined,
+  loading: false,
+  error: '',
+  children: [],
+
+  restoreSession: async () => {
+    set({ loading: true })
+    try {
+      const { user } = await api.getMe()
+      set({ user: toFrontendUser(user), isAuthenticated: true, loading: false })
+      await useProgressStore.getState().loadForUser(user.id)
+      if (user.role === 'parent') await get().loadChildren()
+    } catch {
+      clearToken()
+      set({ user: null, isAuthenticated: false, loading: false })
     }
-    users.push(newUser)
-    saveUsers(users)
-    set({ user: newUser, isAuthenticated: true })
-    return true
   },
-  logout: () => set({ user: null, isAuthenticated: false }),
-  updateUser: updates => {
+
+  login: async (email, password) => {
+    set({ loading: true, error: '' })
+    try {
+      const { token, user } = await api.login({ email, password })
+      setToken(token)
+      set({ user: toFrontendUser(user), isAuthenticated: true, loading: false })
+      await useProgressStore.getState().loadForUser(user.id)
+      if (user.role === 'parent') await get().loadChildren()
+      return true
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '登录失败', loading: false })
+      return false
+    }
+  },
+
+  register: async (name, email, password, grade, role = 'student') => {
+    set({ loading: true, error: '' })
+    try {
+      const { token, user } = await api.register({ name, email, password, grade, role })
+      setToken(token)
+      set({ user: toFrontendUser(user), isAuthenticated: true, loading: false })
+      await useProgressStore.getState().loadForUser(user.id)
+      if (user.role === 'parent') await get().loadChildren()
+      return true
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '注册失败', loading: false })
+      return false
+    }
+  },
+
+  logout: () => {
+    clearToken()
+    set({ user: null, isAuthenticated: false })
+    useProgressStore.setState({ records: [], unlockedAchievements: [], dailyGoal: { target: 60, completed: 0 } })
+  },
+
+  updateUser: async updates => {
     const current = get().user
     if (!current) return
-    const updated = { ...current, ...updates }
-    set({ user: updated })
-    const users = loadUsers()
-    const idx = users.findIndex(u => u.id === updated.id)
-    if (idx >= 0) {
-      users[idx] = updated
-      saveUsers(users)
+    try {
+      const backendUpdates: Partial<{ name: string; grade: number; total_xp: number; streak: number; children: string[] }> = {}
+      if (updates.name !== undefined) backendUpdates.name = updates.name
+      if (updates.grade !== undefined) backendUpdates.grade = updates.grade
+      if (updates.totalXp !== undefined) backendUpdates.total_xp = updates.totalXp
+      if (updates.streak !== undefined) backendUpdates.streak = updates.streak
+      if (updates.children !== undefined) backendUpdates.children = updates.children
+
+      const { user } = await api.updateMe(backendUpdates)
+      set({ user: toFrontendUser(user) })
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '更新失败' })
     }
   },
-  bindChild: childEmail => {
-    const parent = get().user
-    if (!parent || parent.role !== 'parent') return false
-    const users = loadUsers()
-    const child = users.find(u => u.email === childEmail && u.role === 'student')
-    if (!child) return false
-    const children = new Set(parent.children || [])
-    if (children.has(child.id)) return true
-    children.add(child.id)
-    const updatedParent = { ...parent, children: Array.from(children) }
-    set({ user: updatedParent })
-    const idx = users.findIndex(u => u.id === updatedParent.id)
-    if (idx >= 0) {
-      users[idx] = updatedParent
-      saveUsers(users)
+
+  bindChild: async childEmail => {
+    try {
+      const { user } = await api.bindChild(childEmail)
+      set({ user: toFrontendUser(user) })
+      await get().loadChildren()
+      return true
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : '绑定失败' })
+      return false
     }
-    return true
   },
-  allUsers: () => loadUsers(),
+
+  loadChildren: async () => {
+    try {
+      const { children } = await api.getChildren()
+      set({ children: children.map(toFrontendUser) })
+    } catch {
+      set({ children: [] })
+    }
+  },
+
+  refreshUser: async () => {
+    try {
+      const { user } = await api.getMe()
+      set({ user: toFrontendUser(user) })
+    } catch {
+      // ignore
+    }
+  },
+
+  clearError: () => set({ error: '' }),
 }))
 
 interface ProgressState {
   records: ProgressRecord[]
   unlockedAchievements: string[]
   dailyGoal: DailyGoal
-  addRecord: (record: ProgressRecord) => void
-  completeLesson: (lessonId: string, score: number, xp: number) => void
-  checkAchievements: () => void
-  unlockAchievement: (id: string) => void
-  resetDailyGoal: () => void
-  loadForUser: (userId: string) => void
-  getChildProgress: (userId: string) => ProgressData
+  completeLesson: (lessonId: string, score: number, xp: number) => Promise<void>
+  checkAchievements: () => string[]
+  unlockAchievement: (id: string) => Promise<void>
+  resetDailyGoal: () => Promise<void>
+  loadForUser: (userId: string) => Promise<void>
+  getChildProgress: (userId: string) => Promise<ProgressData>
 }
 
-export const useProgressStore = create<ProgressState>()((set, get) => {
-  const currentUserId = () => useUserStore.getState().user?.id
-  const persist = () => {
-    const userId = currentUserId()
-    if (!userId) return
-    saveProgress(userId, {
-      records: get().records,
-      unlockedAchievements: get().unlockedAchievements,
-      dailyGoal: get().dailyGoal,
-    })
-  }
+export const useProgressStore = create<ProgressState>()((set, get) => ({
+  records: [],
+  unlockedAchievements: [],
+  dailyGoal: { target: 60, completed: 0 },
 
-  return {
-    records: [],
-    unlockedAchievements: [],
-    dailyGoal: { target: 60, completed: 0 },
-    addRecord: record => {
-      set(state => ({ records: [...state.records, record] }))
-      get().checkAchievements()
-      persist()
-    },
-    completeLesson: (lessonId, score, xp) => {
-      const record: ProgressRecord = {
-        lessonId,
-        completedAt: new Date().toISOString(),
-        score,
-        xpEarned: xp,
-      }
-      set(state => ({
-        records: [...state.records, record],
-        dailyGoal: { ...state.dailyGoal, completed: Math.min(state.dailyGoal.target, state.dailyGoal.completed + xp) },
-      }))
-      const userStore = useUserStore.getState()
-      const user = userStore.user
-      if (user) {
-        userStore.updateUser({ totalXp: user.totalXp + xp })
-      }
-      get().checkAchievements()
-      persist()
-    },
-    checkAchievements: () => {
-      const { records, unlockedAchievements } = get()
-      const user = useUserStore.getState().user
-      const newUnlocked = new Set(unlockedAchievements)
-      if (records.length >= 1) newUnlocked.add('first-step')
-      if (user && user.streak >= 3) newUnlocked.add('streak-3')
-      if (user && user.streak >= 7) newUnlocked.add('streak-7')
-      const vocabRecords = records.filter(r => r.lessonId.endsWith('-vocab'))
-      if (vocabRecords.length >= 10) newUnlocked.add('vocab-master')
-      const grammarRecords = records.filter(r => r.lessonId.endsWith('-grammar'))
-      if (grammarRecords.length >= 5 && grammarRecords.every(r => r.score >= 90)) newUnlocked.add('grammar-guru')
-      if (user && user.totalXp >= 1000) newUnlocked.add('xp-1000')
-      set({ unlockedAchievements: Array.from(newUnlocked) })
-      persist()
-    },
-    unlockAchievement: id => {
-      const { unlockedAchievements } = get()
-      if (unlockedAchievements.includes(id)) return
-      set({ unlockedAchievements: [...unlockedAchievements, id] })
-      persist()
-    },
-    resetDailyGoal: () => {
-      set(state => ({ dailyGoal: { ...state.dailyGoal, completed: 0 } }))
-      persist()
-    },
-    loadForUser: userId => {
-      const data = loadProgress(userId)
-      set(data)
-    },
-    getChildProgress: userId => loadProgress(userId),
-  }
-})
+  completeLesson: async (lessonId, score, xp) => {
+    await api.completeLesson({ lessonId, score, xp })
 
-// Sync progress store when current user changes
-useUserStore.subscribe(state => {
-  if (state.user?.id) {
-    useProgressStore.getState().loadForUser(state.user.id)
-  } else {
-    useProgressStore.setState({ records: [], unlockedAchievements: [], dailyGoal: { target: 60, completed: 0 } })
-  }
-})
+    const userStore = useUserStore.getState()
+    const user = userStore.user
+    const currentUserId = user?.id
+    if (currentUserId) {
+      await get().loadForUser(currentUserId)
+      await userStore.refreshUser()
+    }
+    const newlyUnlocked = get().checkAchievements()
+    for (const id of newlyUnlocked) {
+      await get().unlockAchievement(id)
+    }
+  },
+
+  checkAchievements: () => {
+    const { records, unlockedAchievements } = get()
+    const user = useUserStore.getState().user
+    const newUnlocked = new Set(unlockedAchievements)
+    if (records.length >= 1) newUnlocked.add('first-step')
+    if (user && user.streak >= 3) newUnlocked.add('streak-3')
+    if (user && user.streak >= 7) newUnlocked.add('streak-7')
+    const vocabRecords = records.filter(r => r.lessonId.endsWith('-vocab'))
+    if (vocabRecords.length >= 10) newUnlocked.add('vocab-master')
+    const grammarRecords = records.filter(r => r.lessonId.endsWith('-grammar'))
+    if (grammarRecords.length >= 5 && grammarRecords.every(r => r.score >= 90)) newUnlocked.add('grammar-guru')
+    if (user && user.totalXp >= 1000) newUnlocked.add('xp-1000')
+    const diff = Array.from(newUnlocked).filter(id => !unlockedAchievements.includes(id))
+    set({ unlockedAchievements: Array.from(newUnlocked) })
+    return diff
+  },
+
+  unlockAchievement: async id => {
+    if (get().unlockedAchievements.includes(id)) return
+    await api.unlockAchievement(id)
+    set(state => ({ unlockedAchievements: [...state.unlockedAchievements, id] }))
+  },
+
+  resetDailyGoal: async () => {
+    set(state => ({ dailyGoal: { ...state.dailyGoal, completed: 0 } }))
+  },
+
+  loadForUser: async () => {
+    const data = toProgressData(await api.getProgress())
+    set(data)
+  },
+
+  getChildProgress: async userId => {
+    const { records } = await api.getChildProgress(userId)
+    return {
+      records: records.map(r => ({
+        lessonId: r.lesson_id,
+        completedAt: r.completed_at,
+        score: r.score,
+        xpEarned: r.xp_earned,
+      })),
+      unlockedAchievements: [],
+      dailyGoal: { target: 60, completed: 0 },
+    }
+  },
+}))
 
 interface CommunityState {
   posts: Post[]
-  addPost: (content: string, authorName: string) => void
-  likePost: (id: string) => void
+  loaded: boolean
+  loadPosts: () => Promise<void>
+  addPost: (content: string, authorName: string) => Promise<void>
+  likePost: (id: string) => Promise<void>
 }
 
-export const useCommunityStore = create<CommunityState>()((set) => ({
-  posts: loadPosts(),
-  addPost: (content, authorName) => {
-    const newPost: Post = {
-      id: `p${Date.now()}`,
-      authorId: 'me',
-      authorName,
-      content,
-      likes: 0,
-      comments: 0,
-      createdAt: new Date().toISOString(),
+export const useCommunityStore = create<CommunityState>()((set, get) => ({
+  posts: mockPosts,
+  loaded: false,
+
+  loadPosts: async () => {
+    try {
+      const { posts } = await api.getPosts()
+      set({ posts: toPosts({ posts }), loaded: true })
+    } catch {
+      set({ loaded: true })
     }
-    set(state => {
-      const posts = [newPost, ...state.posts]
-      savePosts(posts)
-      return { posts }
-    })
   },
-  likePost: id =>
-    set(state => {
-      const posts = state.posts.map(p => (p.id === id ? { ...p, likes: p.likes + 1 } : p))
-      savePosts(posts)
-      return { posts }
-    }),
+
+  addPost: async (content, authorName) => {
+    const { post } = await api.createPost({ content, authorName })
+    set(state => ({
+      posts: [{
+        id: post.id,
+        authorId: post.author_id,
+        authorName: post.author_name,
+        content: post.content,
+        likes: post.likes,
+        createdAt: post.created_at,
+      }, ...state.posts],
+    }))
+    await useProgressStore.getState().unlockAchievement('social-butterfly')
+  },
+
+  likePost: async id => {
+    await api.likePost(id)
+    set(state => ({
+      posts: state.posts.map(p => (p.id === id ? { ...p, likes: p.likes + 1 } : p)),
+    }))
+  },
 }))
 
 export const getAchievements = () => allAchievements
+
+// Restore session on app load
+useUserStore.getState().restoreSession()

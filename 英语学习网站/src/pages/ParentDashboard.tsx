@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Users, Plus, BookOpen, Trophy, Target, Calendar, ArrowRight, LogOut, GraduationCap, TrendingUp } from 'lucide-react'
@@ -18,12 +18,18 @@ interface ChildStats {
 
 export default function ParentDashboard() {
   const navigate = useNavigate()
-  const { user, isAuthenticated, logout, bindChild, allUsers } = useUserStore()
+  const { user, isAuthenticated, logout, bindChild, children, loadChildren, error: storeError } = useUserStore()
   const { getChildProgress } = useProgressStore()
   const [childEmail, setChildEmail] = useState('')
   const [bindError, setBindError] = useState('')
   const [bindSuccess, setBindSuccess] = useState(false)
   const [selectedChild, setSelectedChild] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'parent') {
+      loadChildren()
+    }
+  }, [isAuthenticated, user?.role, loadChildren])
 
   if (!isAuthenticated || !user) {
     return (
@@ -47,40 +53,52 @@ export default function ParentDashboard() {
     )
   }
 
+  const [progressMap, setProgressMap] = useState<Record<string, ProgressRecord[]>>({})
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const map: Record<string, ProgressRecord[]> = {}
+      for (const child of children) {
+        const data = await getChildProgress(child.id)
+        map[child.id] = data.records
+      }
+      if (!cancelled) setProgressMap(map)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [children, getChildProgress])
+
   const childrenStats: ChildStats[] = useMemo(() => {
-    const users = allUsers()
-    return (user.children || [])
-      .map(id => users.find(u => u.id === id))
+    return (children || [])
       .filter(Boolean)
       .map(child => {
-        const progress = getChildProgress(child!.id)
-        const records = progress.records
+        const records = progressMap[child.id] || []
         const dates = new Set(records.map(r => r.completedAt.slice(0, 10)))
         const avgScore = records.length ? Math.round(records.reduce((s, r) => s + r.score, 0) / records.length) : 0
         return {
-          user: child!,
+          user: child,
           records,
-          totalXp: child!.totalXp,
+          totalXp: child.totalXp,
           completedLessons: records.length,
           studyDays: dates.size,
           avgScore,
-          streak: child!.streak,
+          streak: child.streak,
         }
       })
-  }, [user.children, allUsers, getChildProgress])
+  }, [children, progressMap])
 
-  const handleBind = (e: React.FormEvent) => {
+  const handleBind = async (e: React.FormEvent) => {
     e.preventDefault()
     setBindError('')
     setBindSuccess(false)
     if (!childEmail.trim()) return
-    const ok = bindChild(childEmail.trim())
+    const ok = await bindChild(childEmail.trim())
     if (ok) {
       setBindSuccess(true)
       setChildEmail('')
       setTimeout(() => setBindSuccess(false), 2000)
     } else {
-      setBindError('未找到该学生账号，请确认邮箱正确')
+      setBindError(storeError || '未找到该学生账号，请确认邮箱正确')
     }
   }
 

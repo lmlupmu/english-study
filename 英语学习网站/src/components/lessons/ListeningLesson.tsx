@@ -38,7 +38,7 @@ export default function ListeningLesson({ lessonId, xp }: Props) {
     if (i === item.correctIndex) setCorrectCount(c => c + 1)
   }
 
-  const next = () => {
+  const next = async () => {
     if (index < items.length - 1) {
       setIndex(i => i + 1)
       setSelected(null)
@@ -46,7 +46,7 @@ export default function ListeningLesson({ lessonId, xp }: Props) {
     } else {
       setFinished(true)
       const score = Math.round((correctCount / items.length) * 100)
-      completeLesson(lessonId, score, xp)
+      await completeLesson(lessonId, score, xp)
     }
   }
 

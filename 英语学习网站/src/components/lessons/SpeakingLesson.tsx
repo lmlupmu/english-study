@@ -74,14 +74,14 @@ export default function SpeakingLesson({ lessonId, xp }: Props) {
     rec.start()
   }
 
-  const next = () => {
+  const next = async () => {
     if (index < items.length - 1) {
       setIndex(i => i + 1)
       setResult('idle')
       setHeard('')
     } else {
       setFinished(true)
-      completeLesson(lessonId, 100, xp)
+      await completeLesson(lessonId, 100, xp)
     }
   }
 

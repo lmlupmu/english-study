@@ -29,13 +29,13 @@ export default function VocabularyLesson({ lessonId, xp }: Props) {
     window.speechSynthesis.speak(utter)
   }
 
-  const next = () => {
+  const next = async () => {
     if (index < items.length - 1) {
       setIndex(i => i + 1)
       setShowExample(false)
     } else {
       setFinished(true)
-      completeLesson(lessonId, 100, xp)
+      await completeLesson(lessonId, 100, xp)
     }
   }
 

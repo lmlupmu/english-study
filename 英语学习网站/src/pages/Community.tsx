@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Heart, MessageCircle, Send } from 'lucide-react'
 import { useUserStore, useCommunityStore, useProgressStore } from '@/store'
@@ -11,14 +11,18 @@ function formatTime(iso: string) {
 
 export default function Community() {
   const { user, isAuthenticated } = useUserStore()
-  const { posts, addPost, likePost } = useCommunityStore()
+  const { posts, addPost, likePost, loadPosts } = useCommunityStore()
   const { unlockAchievement } = useProgressStore()
   const [content, setContent] = useState('')
 
-  const handlePost = () => {
+  useEffect(() => {
+    loadPosts()
+  }, [loadPosts])
+
+  const handlePost = async () => {
     if (!content.trim() || !user) return
-    addPost(content.trim(), user.name)
-    unlockAchievement('social-butterfly')
+    await addPost(content.trim(), user.name)
+    await unlockAchievement('social-butterfly')
     setContent('')
   }
 
@@ -76,7 +80,7 @@ export default function Community() {
                   <Heart size={18} /> {post.likes}
                 </button>
                 <button className="post-action">
-                  <MessageCircle size={18} /> {post.comments}
+                  <MessageCircle size={18} /> {post.comments || 0}
                 </button>
               </div>
             </motion.div>

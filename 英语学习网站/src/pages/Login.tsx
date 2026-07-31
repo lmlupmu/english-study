@@ -7,26 +7,24 @@ import './Auth.css'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useUserStore()
+  const { login, error: storeError } = useUserStore()
   const [email, setEmail] = useState('learner@example.com')
   const [password, setPassword] = useState('123456')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      const ok = login(email, password)
-      setLoading(false)
-      if (ok) {
-        const user = useUserStore.getState().user
-        navigate(user?.role === 'parent' ? '/parent' : '/courses')
-      } else {
-        setError('邮箱或密码错误')
-      }
-    }, 500)
+    const ok = await login(email, password)
+    setLoading(false)
+    if (ok) {
+      const user = useUserStore.getState().user
+      navigate(user?.role === 'parent' ? '/parent' : '/courses')
+    } else {
+      setError(storeError || '邮箱或密码错误')
+    }
   }
 
   return (
