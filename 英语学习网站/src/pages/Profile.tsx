@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Calendar, Flame, Star, LogOut } from 'lucide-react'
-import { useUserStore } from '@/store'
+import { useUserStore, useProgressStore } from '@/store'
 import { grades } from '@/data/courses'
 import './Profile.css'
 
 export default function Profile() {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout, updateUser, refreshUser } = useUserStore()
+  const { records } = useProgressStore()
+  const wordsLearned = records.filter(r => r.lessonId.endsWith('-vocab')).length * 30
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(user?.name || '')
 
@@ -68,8 +70,8 @@ export default function Profile() {
           </div>
           <div className="profile-stat">
             <Star size={24} style={{ color: 'var(--accent)' }} />
-            <div className="profile-stat-value">{user.totalXp}</div>
-            <div className="profile-stat-label">累计 XP</div>
+            <div className="profile-stat-value">{wordsLearned}</div>
+            <div className="profile-stat-label">已背单词</div>
           </div>
           <div className="profile-stat">
             <div className="profile-grade-badge">

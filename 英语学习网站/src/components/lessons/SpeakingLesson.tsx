@@ -91,7 +91,7 @@ export default function SpeakingLesson({ lessonId, xp }: Props) {
         <CheckCircle2 size={64} color="var(--success)" style={{ margin: '0 auto 20px' }} />
         <div className="result-score">100</div>
         <div className="result-label">口语跟读完成</div>
-        <div className="result-xp">+{xp} XP</div>
+        <div className="result-xp">+{xp} 分</div>
         <button className="btn btn-primary" onClick={() => navigate('/courses')}>
           返回课程
         </button>

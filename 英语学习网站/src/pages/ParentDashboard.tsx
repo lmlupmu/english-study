@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Users, Plus, BookOpen, Trophy, Target, Calendar, ArrowRight, LogOut, GraduationCap, TrendingUp } from 'lucide-react'
+import { Users, Plus, BookOpen, Target, Calendar, ArrowRight, LogOut, GraduationCap, TrendingUp } from 'lucide-react'
 import { useUserStore, useProgressStore } from '@/store'
 import type { User, ProgressRecord } from '@/types'
 import './ParentDashboard.css'
@@ -10,6 +10,7 @@ interface ChildStats {
   user: User
   records: ProgressRecord[]
   totalXp: number
+  wordsLearned: number
   completedLessons: number
   studyDays: number
   avgScore: number
@@ -79,6 +80,7 @@ export default function ParentDashboard() {
           user: child,
           records,
           totalXp: child.totalXp,
+          wordsLearned: records.filter(r => r.lessonId.endsWith('-vocab')).length * 30,
           completedLessons: records.length,
           studyDays: dates.size,
           avgScore,
@@ -170,9 +172,9 @@ export default function ParentDashboard() {
               </div>
               <div className="child-stats">
                 <div className="stat">
-                  <Trophy size={18} />
-                  <span className="stat-value">{child.totalXp}</span>
-                  <span className="stat-label">总 XP</span>
+                  <BookOpen size={18} />
+                  <span className="stat-value">{child.wordsLearned}</span>
+                  <span className="stat-label">已背单词</span>
                 </div>
                 <div className="stat">
                   <BookOpen size={18} />
@@ -221,10 +223,10 @@ export default function ParentDashboard() {
                 </div>
               </div>
               <div className="overview-item">
-                <Trophy size={20} />
+                <BookOpen size={20} />
                 <div>
-                  <div className="overview-value">{selectedStats.totalXp}</div>
-                  <div className="overview-label">累计 XP</div>
+                  <div className="overview-value">{selectedStats.wordsLearned}</div>
+                  <div className="overview-label">已背单词</div>
                 </div>
               </div>
               <div className="overview-item">
@@ -248,7 +250,7 @@ export default function ParentDashboard() {
                       <span className={`record-score ${record.score >= 80 ? 'good' : record.score >= 60 ? 'ok' : 'poor'}`}>
                         {record.score} 分
                       </span>
-                      <span className="record-xp">+{record.xpEarned} XP</span>
+                      <span className="record-xp">+{record.xpEarned} 分</span>
                       <span className="record-time">{new Date(record.completedAt).toLocaleString('zh-CN')}</span>
                     </div>
                   </div>

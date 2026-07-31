@@ -29,6 +29,7 @@ export default function Progress() {
   }, [records])
 
   const completedLessons = records.length
+  const wordsLearned = records.filter(r => r.lessonId.endsWith('-vocab')).length * 30
   const completedSet = new Set(records.map(r => r.lessonId))
   const recommended = useMemo(() => {
     if (!user) return null
@@ -83,8 +84,8 @@ export default function Progress() {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="stat-card">
             <TrendingUp className="stat-icon" style={{ color: 'var(--success)' }} />
-            <div className="stat-value">{user?.totalXp || 0}</div>
-            <div className="stat-label">累计 XP</div>
+            <div className="stat-value">{wordsLearned}</div>
+            <div className="stat-label">已背单词</div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="stat-card">
             <Award className="stat-icon" style={{ color: 'var(--accent-2)' }} />
