@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BookOpen, BarChart2, Users, Sparkles, User, Menu, X, LogOut, Flame, Shield, WifiOff } from 'lucide-react'
+import { BookOpen, BarChart2, Users, Sparkles, User, Menu, X, LogOut, Flame, Shield, WifiOff, Download } from 'lucide-react'
 import { useUserStore } from '@/store'
 import './Layout.css'
+
+// PWA 安装事件类型
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
 const studentNavItems = [
   { path: '/courses', label: '课程', icon: BookOpen },
@@ -22,6 +28,8 @@ export default function Layout() {
   const { user, isAuthenticated, logout } = useUserStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [showInstallBanner, setShowInstallBanner] = useState(false)
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
@@ -33,6 +41,36 @@ export default function Layout() {
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
+
+  // 监听 PWA 安装提示事件
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+      // 用户未安装过才显示横幅
+      if (!localStorage.getItem('pwa-installed')) {
+        setShowInstallBanner(true)
+      }
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstall = async () => {
+    if (!installPrompt) return
+    await installPrompt.prompt()
+    const choice = await installPrompt.userChoice
+    if (choice.outcome === 'accepted') {
+      localStorage.setItem('pwa-installed', 'true')
+    }
+    setInstallPrompt(null)
+    setShowInstallBanner(false)
+  }
+
+  const dismissInstall = () => {
+    setShowInstallBanner(false)
+    localStorage.setItem('pwa-install-dismissed', 'true')
+  }
 
   const navItems = user?.role === 'parent' ? parentNavItems : studentNavItems
 
@@ -96,6 +134,12 @@ export default function Layout() {
           </nav>
 
           <div className="header-actions">
+            {installPrompt && (
+              <button className="btn btn-install" onClick={handleInstall} title="安装到桌面">
+                <Download size={16} />
+                <span className="install-label">安装</span>
+              </button>
+            )}
             {isAuthenticated ? (
               <>
                 {user?.role === 'student' && (
@@ -160,6 +204,37 @@ export default function Layout() {
       <main className="main">
         <Outlet />
       </main>
+
+      {/* PWA 安装横幅 */}
+      <AnimatePresence>
+        {showInstallBanner && installPrompt && !localStorage.getItem('pwa-install-dismissed') && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="install-banner"
+          >
+            <div className="install-banner-content">
+              <div className="install-banner-icon">
+                <Download size={24} />
+              </div>
+              <div className="install-banner-text">
+                <strong>安装 EnglishMind 到桌面</strong>
+                <span>随时打开，离线可用，体验更佳</span>
+              </div>
+              <div className="install-banner-actions">
+                <button className="btn btn-primary btn-sm" onClick={handleInstall}>
+                  安装
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={dismissInstall}>
+                  稍后
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
