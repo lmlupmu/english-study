@@ -36,7 +36,7 @@ export default function VocabularyLesson({ lessonId, xp, gradeId }: Props) {
   const navigate = useNavigate()
   const { completeLesson } = useProgressStore()
   const unitId = lessonId.replace('-vocab', '')
-  const baseItems = getVocabForUnit(unitId, gradeId)
+  const baseItems = useMemo(() => getVocabForUnit(unitId, gradeId), [unitId, gradeId])
 
   const [mode, setMode] = useState<Mode>('learn')
   const [phase, setPhase] = useState<Phase>('intro')
@@ -81,15 +81,16 @@ export default function VocabularyLesson({ lessonId, xp, gradeId }: Props) {
     setSpellFeedback('idle')
   }, [mode])
 
-  // 生成认词选项
+  // 生成认词选项（仅在认词模式或复习模式下生成）
   useEffect(() => {
-    if (mode === 'recognize' && item && phase === 'practice') {
-      const distract = makeDistractors(item.meaning, allWords, 3)
-      setOptions(shuffle([item.meaning, ...distract]))
+    if ((mode === 'recognize' || mode === 'review') && item && phase === 'practice') {
+      const correctMeaning = item.meaning
+      const distract = makeDistractors(correctMeaning, allWords, 3)
+      setOptions(shuffle([correctMeaning, ...distract]))
       setSelected(null)
       setAnswered(false)
     }
-  }, [mode, item, phase, allWords])
+  }, [mode, phase, item, allWords])
 
   // ========== 学习模式（卡片浏览） ==========
   const handleLearnNext = () => {
