@@ -57,7 +57,10 @@ export default function VocabularyLesson({ lessonId, xp, gradeId }: Props) {
   const practiceOrder = useMemo(() => shuffle(baseItems), [baseItems])
   const allWords = useMemo(() => baseItems.map(i => i.meaning), [baseItems])
 
-  const item = mode === 'review' ? wrongItems[index] : practiceOrder[index]
+  const item =
+    mode === 'learn' ? baseItems[index] :
+    mode === 'review' ? wrongItems[index] :
+    practiceOrder[index]
 
   // 朗读
   const speak = (text: string) => {
@@ -190,7 +193,7 @@ export default function VocabularyLesson({ lessonId, xp, gradeId }: Props) {
   }
 
   // ========== 渲染：学习模式介绍页 ==========
-  if (mode === 'learn' && index === 0 && !showExample) {
+  if (phase === 'intro' && mode === 'learn') {
     return (
       <div className="mode-intro">
         <div className="mode-intro-icon"><Brain size={48} /></div>
