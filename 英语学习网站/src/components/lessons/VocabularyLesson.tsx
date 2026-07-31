@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Volume2, ArrowRight, CheckCircle2, Eye, Brain, RotateCw, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { vocabData, defaultVocab } from '@/data/courses'
+import { getVocabForUnit } from '@/data/courses'
 import { useProgressStore } from '@/store'
 import type { VocabularyItem } from '@/types'
 
@@ -32,10 +32,11 @@ function makeDistractors(correct: string, pool: string[], count = 3): string[] {
   return shuffle(others).slice(0, count)
 }
 
-export default function VocabularyLesson({ lessonId, xp }: Props) {
+export default function VocabularyLesson({ lessonId, xp, gradeId }: Props) {
   const navigate = useNavigate()
   const { completeLesson } = useProgressStore()
-  const baseItems = vocabData[lessonId.replace('-vocab', '')] || defaultVocab
+  const unitId = lessonId.replace('-vocab', '')
+  const baseItems = getVocabForUnit(unitId, gradeId)
 
   const [mode, setMode] = useState<Mode>('learn')
   const [phase, setPhase] = useState<Phase>('intro')
