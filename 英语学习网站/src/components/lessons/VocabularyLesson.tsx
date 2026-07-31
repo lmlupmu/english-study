@@ -70,7 +70,24 @@ export default function VocabularyLesson({ lessonId, xp, gradeId }: Props) {
     window.speechSynthesis.speak(utter)
   }
 
-  // 进入新模式时重置状态
+  // 切换课程（lessonId/gradeId 变化）时，强制所有状态回到初始介绍页
+  // 确保：从 GradeDetail 导航进入 vs 直接刷新页面，初始展示完全一致
+  useEffect(() => {
+    setMode('learn')
+    setPhase('intro')
+    setIndex(0)
+    setShowExample(false)
+    setShowMeaning(false)
+    setOptions([])
+    setSelected(null)
+    setAnswered(false)
+    setSpellInput('')
+    setSpellFeedback('idle')
+    setCorrectCount(0)
+    setWrongItems([])
+  }, [lessonId, gradeId])
+
+  // 进入新模式时重置附属状态（不碰 phase）
   useEffect(() => {
     setIndex(0)
     setSelected(null)
